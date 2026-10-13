@@ -134,6 +134,24 @@ installation, and production-style local execution.
 - Property testing/fuzzing waits for meaningful content/configuration invariants;
   do not invent properties for a constant health response.
 
+## Agent workflow and environment
+
+`AGENTS.md` provides concise instructions for all coding agents, with explicit
+execution authorization, scope escalation, changelog maintenance, verification,
+and human-only merge boundaries. The general PR template requests issue linkage,
+verification evidence, changelog accountability, and reviewer context.
+
+`.devin/blueprint.yaml` defines a Linux x86-64 environment reviewed through PRs.
+It reads tool versions from repository metadata, checksum-verifies archives,
+checks bundled npm, and incrementally prepares dependencies and Playwright.
+It starts no services and provisions no infrastructure. The existing installation
+requires a human-controlled mode switch and sync/build after merge; file-level
+verification is not evidence of activation or a successful fresh snapshot.
+
+[Workflow guidance](../workflow.md) describes activation and fresh-session checks,
+and records the visible main-protection findings and API access limitations.
+No automatic blueprint pipeline or repository security-policy change is included.
+
 ## Infrastructure and unimplemented capabilities
 
 `infra/terraform` contains guidance only; no AWS account is required. No cloud

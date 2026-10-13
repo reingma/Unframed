@@ -1,0 +1,49 @@
+initialize: |
+  set -euo pipefail
+  test "$(uname -sm)" = "Linux x86_64"
+  for tool in make curl tar xz sha256sum awk; do command -v "$tool" >/dev/null; done
+  go_version="$(awk '$1 == "go" { print $2 }' backend/go.mod)"
+  node_version="$(cat frontend/.nvmrc)"
+  [[ "$go_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+  [[ "$node_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+  go_root="$HOME/.local/toolchains/go-$go_version"
+  node_root="$HOME/.local/toolchains/node-$node_version"
+  mkdir -p "$HOME/.local/bin" "$go_root" "$node_root"
+  curl -fsSL "https://go.dev/dl/go$go_version.linux-amd64.tar.gz" -o "$HOME/.local/toolchains/go.tar.gz"
+  printf '%s  %s\n' '42d158b4d8f7b61ac0a830567c940a86098fb7aac52e467a5ebec03ef5cc2f8d' "$HOME/.local/toolchains/go.tar.gz" | sha256sum -c -
+  tar -xzf "$HOME/.local/toolchains/go.tar.gz" -C "$go_root" --strip-components=1
+  curl -fsSL "https://nodejs.org/dist/v$node_version/node-v$node_version-linux-x64.tar.xz" -o "$HOME/.local/toolchains/node.tar.xz"
+  printf '%s  %s\n' 'fd8e59d5a511510f6a298afb548f18c7d2b1be404d8b4a27d94fbe49f56cb2d6' "$HOME/.local/toolchains/node.tar.xz" | sha256sum -c -
+  tar -xJf "$HOME/.local/toolchains/node.tar.xz" -C "$node_root" --strip-components=1
+  ln -sf "$go_root/bin/go" "$HOME/.local/bin/go"
+  ln -sf "$go_root/bin/gofmt" "$HOME/.local/bin/gofmt"
+  ln -sf "$node_root/bin/node" "$HOME/.local/bin/node"
+  ln -sf "$node_root/bin/npm" "$HOME/.local/bin/npm"
+  ln -sf "$node_root/bin/npx" "$HOME/.local/bin/npx"
+  export PATH="$HOME/.local/bin:$PATH"
+  test "$(go env GOVERSION)" = "go$go_version"
+  test "$(node --version)" = "v$node_version"
+  expected_npm="$(node -p "require('./frontend/package.json').packageManager.replace(/^npm@/, '')")"
+  test "$(npm --version)" = "$expected_npm"
+  printf 'PATH=%s\n' "$PATH" >> "$ENVRC"
+  go version
+  node --version
+  npm --version
+
+maintenance: |
+  set -euo pipefail
+  export PATH="$HOME/.local/bin:$PATH"
+  (cd backend && go mod download)
+  (cd frontend && npm install && npx playwright install --with-deps chromium)
+
+knowledge:
+  - name: lint
+    contents: make check
+  - name: test
+    contents: make test && make test-e2e
+  - name: build
+    contents: make build
+  - name: startup
+    contents: Run make dev-backend and make dev-frontend in separate terminals.
+  - name: notes
+    contents: Read AGENTS.md and docs/workflow.md; native Go commands require GOEXPERIMENT=jsonv2.

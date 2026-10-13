@@ -148,6 +148,10 @@ It starts no services and provisions no infrastructure. The existing installatio
 requires a human-controlled mode switch and sync/build after merge; file-level
 verification is not evidence of activation or a successful fresh snapshot.
 
+[Workflow guidance](../workflow.md) describes activation and fresh-session checks,
+and records the visible main-protection findings and API access limitations.
+No automatic blueprint pipeline or repository security-policy change is included.
+
 ## Infrastructure and unimplemented capabilities
 
 `infra/terraform` contains guidance only; no AWS account is required. No cloud

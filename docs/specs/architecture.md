@@ -1,40 +1,44 @@
-# ENG-14 — Initial Go and Next.js monorepo skeleton
+# Current architecture
 
-Status: approved for implementation by Gabriel on 2026-10-13.
-Tracking: [ENG-14](https://linear.app/unframed-blog/issue/ENG-14/implement-initial-go-and-nextjs-monorepo-skeleton).
-Planning: [ENG-13](https://linear.app/unframed-blog/issue/ENG-13/plan-for-monorepo-implementation).
+This living specification describes Unframed as implemented. Update this single
+document as approved changes land, rather than adding issue-specific copies.
+Linear remains the authoritative source for planned requirements and acceptance
+criteria; decision records explain why architectural choices were made.
 
-This is the versioned, authoritative specification transferred from the approved
-ENG-14 handoff. Linear tracks status and links here; do not maintain a second
-requirements copy. Patch pins and concrete commands below resolve the approved
-proposal's delegated implementation details without expanding its scope.
-
-## Scope and layout
+## Repository layout
 
 One shallow monorepo, with independently runnable/buildable applications:
 
 ```text
 backend/cmd/server/       executable entry point
+backend/internal/router/  route registration and routing tests
 backend/internal/health/  health handler and colocated tests
 frontend/src/app/         Next.js routes and layouts
 frontend/src/lib/         backend communication helper
 frontend/e2e/             browser integration tests
 infra/terraform/         scope and future setup guidance
-docs/specs/              implementation specifications
+docs/specs/              living architecture specification
 docs/decisions/          architectural decision records
 .github/workflows/       CI
 ```
 
-Use one Go module in the backend and one npm project in the frontend. No JavaScript
-workspace manager, shared package, generic service/repository layers, custom routing
-framework, Docker, or task-orchestration framework. Include `.gitignore` for generated
-application output, local environment configuration, and Terraform state/caches/plans.
+There is one Go module in the backend and one npm project in the frontend, without
+a workspace manager, shared package, generic service/repository layers, custom
+routing framework, Docker, or task-orchestration framework. `.gitignore` excludes
+generated application output, local environment configuration, and Terraform
+state/caches/plans.
 
 ## Toolchain and reviewed pins
 
-Use Go 1.26.x, Next.js 16.x App Router, React, strict TypeScript, Node 24 LTS, npm with
-a committed lockfile, Zod at external TypeScript boundaries, and minimal CSS without
-a component library. Use Go formatting/vet and frontend ESLint/Prettier/type checks.
+The stack is Go 1.26.x, Next.js 16.x App Router, React, strict TypeScript, Node 24
+LTS, and npm with a committed lockfile. Zod validates external TypeScript data;
+styling uses minimal CSS without a component library. Static checks use Go
+formatting/vet and frontend ESLint/Prettier/type checking.
+
+The backend serializes JSON with standard-library `encoding/json/v2` using
+`json.MarshalWrite`. Go 1.26 requires the experimental `GOEXPERIMENT=jsonv2`
+build flag; backend Make targets and CI set it, and native Go commands must do
+the same. This API is not yet covered by Go's compatibility guarantee.
 
 Reviewed on 2026-10-13 using official runtime releases, npm package release dates,
 engine/peer constraints, dependency audits, and local compatibility checks:
@@ -74,9 +78,10 @@ the chosen linter and has patched dependencies.
 ## HTTP and rendering contract
 
 - Standard `net/http` serves connections, timeouts, and graceful shutdown;
-  httprouter provides explicit method/path registration. Use standard handlers
-  where practical and keep router-specific parameters at the HTTP boundary.
-- Go exposes `GET /healthz` returning HTTP 200, `Content-Type: application/json`,
+  httprouter provides explicit method/path registration in `backend/internal/router`.
+  The executable handles server setup and lifecycle, not route definitions.
+  Handlers use standard `http.HandlerFunc` signatures.
+- Go exposes `GET /healthcheck` returning HTTP 200, `Content-Type: application/json`,
   and `{"status":"ok"}`. This is liveness, not readiness of future dependencies.
 - The request flow is **browser → Next.js → Go**. The browser does not call Go
   directly, and the initial slice needs no browser CORS setup.
@@ -90,13 +95,14 @@ the chosen linter and has patched dependencies.
   TypeScript response type. Valid data produces “Backend available” and displays
   the response; unreachable/timeout/non-success responses, malformed JSON, and
   schema-invalid data produce a clear unavailable state rather than healthy data.
-- Do not wrap every internal function or UI component in Zod. Go remains
-  responsible for backend validation.
+- Zod is used at the external response boundary, not around internal functions
+  or UI components. Go retains responsibility for backend validation.
 
-Go owns future content/configuration loading and validation, Markdown processing,
-and preparation of article data. Next.js owns complete reader-facing HTML pages,
-layout, navigation, and metadata. The future article representation remains
-undecided. Future images/downloads/streams need not use JSON.
+The agreed future responsibility boundary assigns content/configuration loading,
+validation, Markdown processing, and article-data preparation to Go. Next.js owns
+complete reader-facing HTML pages, layout, navigation, and metadata. Those content
+features are not implemented. The article representation remains undecided;
+future images/downloads/streams need not use JSON.
 
 ## Commands, tests, and CI
 
@@ -112,7 +118,10 @@ The README documents fresh installation, configuration, native commands, browser
 installation, and production-style local execution.
 
 - Go: standard `testing` and `httptest` verify status/content-type/JSON; formatting,
-  `go vet`, and race-enabled tests.
+  `go vet`, and race-enabled tests. Router tests cover `/healthcheck`, rejected
+  methods, unknown routes, and removal of `/healthz`. A failing response writer
+  verifies that JSON write failures are logged with a descriptive message and
+  the underlying error details.
 - Frontend: Vitest verifies the communication boundary's valid and invalid data,
   connection/HTTP failures, configuration, and timeout. React Testing Library
   verifies synchronous success/unavailable presentation.
@@ -125,29 +134,13 @@ installation, and production-style local execution.
 - Property testing/fuzzing waits for meaningful content/configuration invariants;
   do not invent properties for a constant health response.
 
-## Acceptance criteria
+## Infrastructure and unimplemented capabilities
 
-1. A fresh checkout can be installed and run using documented commands.
-2. Backend and frontend build independently.
-3. The page displays a real Go health response fetched server-side and handles
-   backend failure and malformed/schema-invalid responses gracefully.
-4. The backend address is configurable without source edits.
-5. Local checks and CI verify the same behavior.
-6. Documentation/infrastructure areas exist, with no cloud provisioning, secrets,
-   or blog features introduced.
-7. Go uses `net/http` + httprouter; the endpoint satisfies its JSON contract, and
-   the frontend validates it with Zod using an inferred TypeScript type.
+`infra/terraform` contains guidance only; no AWS account is required. No cloud
+resources, Terraform providers/state configuration, or deployment jobs exist.
 
-## Boundaries and handoff
-
-No article endpoints, content ingestion, Markdown renderer, publishing/drafts
-implementation, appearance configuration schema, generic API envelopes,
-GraphQL/gRPC, or API code generation. No AWS resources/services/providers or
-Terraform state configuration. Infrastructure guidance only; full agent
-instructions and the environment blueprint remain separate follow-up work.
-
-Linear tracks planning, status, and implementation; GitHub holds source,
-specifications, decisions, and verification history. Material scope changes
-require discussion and explicit approval. Use the Engineering resource naming
-conventions, a feature branch, the available PR template, and `Fixes ENG-14` when
-fully delivered. Gabriel reviews and decides whether to merge; agents never merge.
+Content ingestion, article rendering, drafts/publishing, appearance configuration,
+S3/content providers, math support, authentication, and database storage are not
+implemented. The API has no generic response envelope, GraphQL/gRPC, or code
+generation. Go and Next.js responsibilities for future capabilities are outlined
+above; their detailed contracts still require planning and approval.

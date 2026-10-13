@@ -11,7 +11,7 @@ export type HealthResult =
 export async function getBackendHealth(): Promise<HealthResult> {
   try {
     const baseUrl = process.env.BACKEND_URL || "http://127.0.0.1:8080";
-    const response = await fetch(new URL("/healthz", baseUrl), {
+    const response = await fetch(new URL("/healthcheck", baseUrl), {
       cache: "no-store",
       signal: AbortSignal.timeout(2_000),
     });

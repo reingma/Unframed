@@ -10,8 +10,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/julienschmidt/httprouter"
-	"github.com/reingma/Unframed/backend/internal/health"
+	"github.com/reingma/Unframed/backend/internal/router"
 )
 
 func main() {
@@ -28,11 +27,9 @@ func run(ctx context.Context) error {
 	if addr == "" {
 		addr = ":8080"
 	}
-	router := httprouter.New()
-	router.HandlerFunc(http.MethodGet, "/healthz", health.Handler)
 	server := &http.Server{
 		Addr:              addr,
-		Handler:           router,
+		Handler:           router.New(),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
 		WriteTimeout:      10 * time.Second,

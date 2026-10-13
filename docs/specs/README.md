@@ -1,23 +1,25 @@
-# Implementation specifications
+# Living architecture specification
 
-Specifications record approved scope, contracts, and behavioral acceptance
-criteria. Use an issue-prefixed filename and link the specification from Linear.
-Keep one authoritative requirements document; issue descriptions should link it
-rather than maintain a competing copy. PRs provide implementation and verification
-evidence, not a second specification.
+The [current architecture](architecture.md) is the single running specification of
+the implemented system: structure, responsibilities, contracts, tooling, and known
+boundaries. Update it as development changes those facts. Do not create
+issue-prefixed specifications or copy planning documents from Linear into Git.
+
+Linear owns planned requirements, approval, and acceptance criteria. GitHub owns
+source, the living architecture, decision rationale, and verification history.
 
 1. Discuss requirements and challenge assumptions in the planning issue.
-2. Agree on a specification, including boundaries and acceptance criteria.
+2. Agree on requirements, boundaries, and acceptance criteria in Linear.
 3. Obtain Gabriel's explicit implementation authorization before changing code,
    creating a branch, committing, or opening a PR.
-4. Implement on the documented feature branch, verify the criteria, and open a
-   linked PR for human review.
+4. Implement on the documented feature branch, update the living architecture,
+   verify the criteria, and open a linked PR for human review.
 5. Gabriel decides whether to merge. Agents never merge.
 
 Material changes to architecture, security boundaries, infrastructure, or approved
-scope return to discussion and human approval. Agent instructions and a Devin
-environment blueprint remain separate follow-up work after commands are verified.
+scope return to discussion and human approval. Agent instructions and environment
+configuration are separate workflow work.
 
-## Specifications
+## Current system
 
-- [ENG-14: initial monorepo skeleton](eng-14-monorepo-skeleton.md)
+- [Current architecture](architecture.md)

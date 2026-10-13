@@ -11,12 +11,13 @@ validates its response server-side. It does not implement blog content or deploy
 
 ```text
 backend/cmd/server/       Go executable
+backend/internal/router/  route registration and routing tests
 backend/internal/health/  health handler and contract test
 frontend/src/app/         Next.js App Router page, layout, and presentation
 frontend/src/lib/         server-only API communication and Zod validation
 frontend/e2e/             Playwright integration tests
 infra/terraform/         future infrastructure scope and guardrails
-docs/specs/              authoritative implementation specifications
+docs/specs/              living architecture specification
 docs/decisions/          architectural decisions and rationale
 .github/workflows/       verification, not deployment
 ```
@@ -27,6 +28,11 @@ Install **Go 1.26.9**, **Node 24.21.0 LTS**, **npm 11.19.0**, and **Make**.
 Go's version is pinned in `backend/go.mod`; Node's version is in `frontend/.nvmrc`.
 With [nvm](https://github.com/nvm-sh/nvm), run `nvm install` and `nvm use` inside
 `frontend/` to select Node. Use the bundled npm 11.19.0.
+
+The backend uses standard-library `encoding/json/v2`, which is experimental in
+Go 1.26 and requires `GOEXPERIMENT=jsonv2` at compile time. Make and CI set this
+flag; set it explicitly when using native Go commands. The API is not yet covered
+by Go's compatibility guarantee.
 
 From the repository root:
 
@@ -53,7 +59,7 @@ The endpoint checks backend liveness only, not readiness of future dependencies.
 | Variable       | Process        | Default                 | Purpose                                                        |
 | -------------- | -------------- | ----------------------- | -------------------------------------------------------------- |
 | `BACKEND_ADDR` | Go             | `:8080`                 | Listen address, such as `127.0.0.1:9090`.                      |
-| `BACKEND_URL`  | Next.js server | `http://127.0.0.1:8080` | Absolute backend origin; `/healthz` is resolved from its root. |
+| `BACKEND_URL`  | Next.js server | `http://127.0.0.1:8080` | Absolute backend origin; `/healthcheck` is resolved from its root. |
 
 For example, in the two terminals:
 
@@ -97,6 +103,7 @@ Native commands are also supported:
 
 ```sh
 # In backend/
+export GOEXPERIMENT=jsonv2
 go mod download
 go run ./cmd/server
 gofmt -w cmd internal
@@ -125,7 +132,7 @@ verification, run `backend/bin/server` and `npm run start` inside `frontend/` af
 
 ## Specifications and workflow
 
-- [ENG-14 specification](docs/specs/eng-14-monorepo-skeleton.md)
+- [Current architecture — living specification](docs/specs/architecture.md)
 - [Specification and handoff conventions](docs/specs/README.md)
 - [Decisions and engineering-resource links](docs/decisions/README.md)
 - [Terraform scope](infra/terraform/README.md)

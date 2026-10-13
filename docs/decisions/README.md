@@ -1,8 +1,9 @@
 # Architectural decisions
 
-Record enduring choices and rationale here; keep implementation acceptance criteria
-in the authoritative specification. Use numbered Markdown records with status,
-context, decision, consequences, and links to the work that approved the choice.
+Record enduring choices and rationale here; keep planned requirements and
+acceptance criteria in Linear and current architecture in the living specification.
+Use numbered Markdown records with status, context, decision, consequences, and
+links to the work that approved the choice.
 Supersede a decision explicitly rather than silently rewriting its history.
 
 - [0001: monorepo and rendering boundary](0001-monorepo-and-rendering-boundary.md)

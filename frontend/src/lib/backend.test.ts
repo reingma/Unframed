@@ -17,7 +17,7 @@ describe("getBackendHealth", () => {
       data: { status: "ok" },
     });
     expect(fetchMock).toHaveBeenCalledWith(
-      new URL("http://localhost:9000/healthz"),
+      new URL("http://localhost:9000/healthcheck"),
       { cache: "no-store", signal: expect.any(AbortSignal) },
     );
   });
@@ -30,7 +30,7 @@ describe("getBackendHealth", () => {
     vi.stubGlobal("fetch", fetchMock);
     await getBackendHealth();
     expect(fetchMock.mock.calls[0][0].href).toBe(
-      "http://127.0.0.1:8080/healthz",
+      "http://127.0.0.1:8080/healthcheck",
     );
   });
 

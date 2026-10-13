@@ -34,11 +34,13 @@ caching decision. The article representation, Markdown libraries, configuration
 schema, publishing rules, and deployment remain undecided. Future binary/download
 responses need not be JSON.
 
-Terraform has a reserved area, but no infrastructure is provisioned. Specifications
-and decisions live alongside code, linked from Linear rather than duplicated.
+Terraform has a reserved area, but no infrastructure is provisioned. The living
+architecture and decisions stay alongside code; planned requirements remain in
+Linear rather than being copied into issue-specific repository documents.
 
 ## References
 
 - [ENG-11](https://linear.app/unframed-blog/issue/ENG-11/define-architecture-and-workflow)
 - [ENG-13](https://linear.app/unframed-blog/issue/ENG-13/plan-for-monorepo-implementation)
-- [ENG-14 specification](../specs/eng-14-monorepo-skeleton.md)
+- [ENG-14](https://linear.app/unframed-blog/issue/ENG-14/implement-initial-go-and-nextjs-monorepo-skeleton)
+- [Current architecture](../specs/architecture.md)

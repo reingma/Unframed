@@ -4,7 +4,7 @@ test("renders the real Go health response fetched server-side", async ({
   page,
   request,
 }) => {
-  const response = await request.get("http://127.0.0.1:18080/healthz");
+  const response = await request.get("http://127.0.0.1:18080/healthcheck");
   expect(response.status()).toBe(200);
   expect(response.headers()["content-type"]).toBe("application/json");
   const health: unknown = await response.json();
@@ -39,7 +39,10 @@ test("routes only the health endpoint and rejects unsupported methods", async ({
   expect((await request.get("http://127.0.0.1:18080/missing")).status()).toBe(
     404,
   );
-  const response = await request.post("http://127.0.0.1:18080/healthz");
+  expect((await request.get("http://127.0.0.1:18080/healthz")).status()).toBe(
+    404,
+  );
+  const response = await request.post("http://127.0.0.1:18080/healthcheck");
   expect(response.status()).toBe(405);
   expect(response.headers()["allow"]).toContain("GET");
 });

@@ -67,29 +67,3 @@ Subsequent blueprint changes use a feature-branch PR, human review/merge, and
 manual sync/build. Do not edit settings as a competing source or introduce
 automatic activation without approval. See
 [Devin's activation documentation](https://docs.devin.ai/onboard-devin/environment/git-backed-blueprints).
-
-## Main-branch protection review
-
-Inspection during introduction of this workflow found an active repository
-[ruleset, “Protect mian”](https://github.com/reingma/Unframed/rules/24961945),
-applying to `main`. GitHub's active branch-rules response included:
-
-- PRs required, with resolved review threads.
-- Zero required approving reviews.
-- No required status-check rule.
-- Linear history, no force pushes, and no deletion.
-
-The classic branch-protection endpoint returned HTTP 401 through the available
-API access. These findings describe the visible ruleset, **not proof that no
-additional classic protection exists**. No security settings were changed.
-
-Gabriel should inspect both classic protection and rulesets, including bypass
-permissions, and explicitly approve any changes needed to enforce human review
-and these existing CI jobs on `main`:
-
-- `Backend checks and build`
-- `Frontend checks and build`
-- `Production integration tests`
-
-Until confirmed, agents must not equate “CI runs” with “CI is required for merge.”
-The no-merge instruction applies regardless of technical permissions.

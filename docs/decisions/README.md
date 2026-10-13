@@ -14,10 +14,11 @@ Engineering resources in Linear also govern collaboration:
 - [Engineering Principles — Unframed](https://linear.app/unframed-blog/document/engineering-principles-unframed-e94d1836af7e)
 - [PR Naming Convention](https://linear.app/unframed-blog/document/pr-naming-convention-fd814085c80c):
   branch `eng-123-implement-markdown-renderer`, PR title
-  `[ENG-123] Implement Markdown renderer`, and `Fixes`/`Refs` issue linkage.
+  `[ENG-123] Implement Markdown renderer`, and `Fixes`/`Part of` issue linkage
+  (`Refs` is a supported non-closing alias).
 - [Commit Naming Schema](https://linear.app/unframed-blog/document/architecture-decision-commit-naming-schema-39b96b2fcbdf):
-  commit messages use `type(area): message`. The document labels this as branch
-  naming, but the dedicated PR Naming Convention supplies Git-valid branch names.
+  commit messages use `type(area): message`; the PR Naming Convention supplies
+  Git-valid branch names.
 
 The resources remain authoritative for their policies; this index is not a second
 copy of those policies.

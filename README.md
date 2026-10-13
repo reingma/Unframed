@@ -20,6 +20,8 @@ infra/terraform/         future infrastructure scope and guardrails
 docs/specs/              living architecture specification
 docs/decisions/          architectural decisions and rationale
 .github/workflows/       verification, not deployment
+AGENTS.md                instructions for all coding agents
+.devin/blueprint.yaml     reviewed development environment definition
 ```
 
 ## Fresh checkout
@@ -56,9 +58,9 @@ The endpoint checks backend liveness only, not readiness of future dependencies.
 
 ## Configuration
 
-| Variable       | Process        | Default                 | Purpose                                                        |
-| -------------- | -------------- | ----------------------- | -------------------------------------------------------------- |
-| `BACKEND_ADDR` | Go             | `:8080`                 | Listen address, such as `127.0.0.1:9090`.                      |
+| Variable       | Process        | Default                 | Purpose                                                            |
+| -------------- | -------------- | ----------------------- | ------------------------------------------------------------------ |
+| `BACKEND_ADDR` | Go             | `:8080`                 | Listen address, such as `127.0.0.1:9090`.                          |
 | `BACKEND_URL`  | Next.js server | `http://127.0.0.1:8080` | Absolute backend origin; `/healthcheck` is resolved from its root. |
 
 For example, in the two terminals:
@@ -135,9 +137,17 @@ verification, run `backend/bin/server` and `npm run start` inside `frontend/` af
 - [Current architecture — living specification](docs/specs/architecture.md)
 - [Specification and handoff conventions](docs/specs/README.md)
 - [Decisions and engineering-resource links](docs/decisions/README.md)
+- [Instructions for all coding agents](AGENTS.md)
+- [Workflow and manual blueprint activation](docs/workflow.md)
 - [Terraform scope](infra/terraform/README.md)
 
-Linear tracks work; repository specifications and decisions are durable technical
-records. Implementation requires explicit human approval. Changes are delivered
-on a feature branch as a linked PR; agents never merge. Full agent instructions
-and a reproducible environment blueprint are follow-up work.
+Linear owns planned requirements, approval, and acceptance criteria. GitHub holds
+source, the living current architecture, decisions, and verification history.
+Implementation requires explicit human authorization; planning approval alone is
+not enough. Changes use the repository PR template, record notable changes under
+Unreleased, and are delivered on a linked feature-branch PR. Agents never merge.
+
+The Git-backed blueprint defines the development environment; it does not deploy
+the blog or automatically activate itself. The existing settings-managed
+installation requires manual switching, sync/build, and fresh-session verification
+after merge, as described in the workflow guide.

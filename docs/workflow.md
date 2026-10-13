@@ -39,3 +39,31 @@ automatically re-executed, at session start. No running servers survive a snapsh
 Fresh checkout and CI verification still use `make setup` (`npm ci`). Blueprint
 maintenance uses incremental `npm install`; check for unexpected lockfile changes.
 Environment knowledge points to the agent instructions instead of copying policy.
+
+## Manual activation after merge
+
+The existing Unframed installation was settings-managed when this definition was
+introduced. Committing the YAML does not switch that installation or prove a
+snapshot usable. Activation and fresh-session verification remain human-controlled.
+
+1. Gabriel reviews and merges the repository PR. Use `Part of` for an issue whose
+   acceptance includes these post-merge steps; do not close it on the file merge.
+2. In Devin **Settings → Environment → Blueprints**, select Unframed and switch
+   its source from database/settings to Git. Confirm the imported default-branch
+   commit and blueprint contents.
+3. Sync/build through the UI and wait for a successful build. The UI Sync action
+   builds changed contents; explicitly build if necessary when unchanged. Confirm
+   the intended Linux snapshot succeeded, not merely a partial overall result.
+4. Leave automatic sync/build-on-default-branch-commit disabled. No API token or
+   GitHub sync workflow is required.
+5. Start a fresh session using that snapshot. Confirm the synced commit, tool
+   versions, and discovery of the root agent instructions. Have the agent report
+   the authorization/no-merge/changelog guardrails before authorizing test work.
+6. Verify documented startup and `make check`, `make test`, `make build`, and
+   `make test-e2e` in that fresh session. Record results and any activation gaps
+   on the implementation issue before marking it Done.
+
+Subsequent blueprint changes use a feature-branch PR, human review/merge, and
+manual sync/build. Do not edit settings as a competing source or introduce
+automatic activation without approval. See
+[Devin's activation documentation](https://docs.devin.ai/onboard-devin/environment/git-backed-blueprints).

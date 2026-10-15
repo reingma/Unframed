@@ -154,6 +154,11 @@ explicit activation fallbacks. Static/race example checks run through Make and C
 fuzz campaigns and operation benchmarks are manual, not performance gates. No
 reviewer profiles, global installation, or event-driven execution are configured.
 The skill entry point requires shared principles but loads examples only as needed.
+The repository-local `implementation-planning` skill provides an interactive method
+for security, early measurements, telemetry, verification and library/interface
+trade-offs. Root instructions require that discussion before design is settled;
+optional examples/formats show records and linked, bounded follow-up proposals.
+Planning is not implementation kickoff and no automatic issue execution is wired.
 Per-skill `token-performance/analysis.md` reports retain factual token measurements
 and verification evidence outside the mandatory runtime loading path.
 

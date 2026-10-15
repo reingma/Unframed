@@ -81,15 +81,15 @@ directly, so this slice needs no CORS configuration.
 
 Run from the repository root:
 
-| Command         | Behavior                                                                     |
-| --------------- | ---------------------------------------------------------------------------- |
-| `make setup`    | Download Go dependencies and install the npm lockfile with `npm ci`.         |
-| `make fmt`      | Format Go and frontend source.                                               |
-| `make check`    | Check Go formatting/vet and frontend Prettier/ESLint/TypeScript.             |
-| `make test`     | Run Go race-enabled tests and frontend Vitest tests.                         |
-| `make build`    | Build both applications independently; no live backend needed.               |
-| `make test-e2e` | Build production applications and run managed Playwright integration checks. |
-| `make check-skills`, `make test-skills` | Check the isolated Go skill examples; included in `check` and `test`. |
+| Command                                 | Behavior                                                                     |
+| --------------------------------------- | ---------------------------------------------------------------------------- |
+| `make setup`                            | Download Go dependencies and install the npm lockfile with `npm ci`.         |
+| `make fmt`                              | Format Go and frontend source.                                               |
+| `make check`                            | Check Go formatting/vet and frontend Prettier/ESLint/TypeScript.             |
+| `make test`                             | Run Go race-enabled tests and frontend Vitest tests.                         |
+| `make build`                            | Build both applications independently; no live backend needed.               |
+| `make test-e2e`                         | Build production applications and run managed Playwright integration checks. |
+| `make check-skills`, `make test-skills` | Check the isolated Go skill examples; included in `check` and `test`.        |
 
 Before the first integration run, install the Chromium browser:
 
@@ -143,6 +143,7 @@ verification, run `backend/bin/server` and `npm run start` inside `frontend/` af
 - [Instructions for all coding agents](AGENTS.md)
 - [Workflow and manual blueprint activation](docs/workflow.md)
 - [Go engineering implementation skill](.agents/skills/go-engineering/SKILL.md)
+- [Interactive implementation-planning skill](.agents/skills/implementation-planning/SKILL.md)
 - [Terraform scope](infra/terraform/README.md)
 
 Linear owns planned requirements, approval, and acceptance criteria. GitHub holds

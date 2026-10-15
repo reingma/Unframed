@@ -73,7 +73,7 @@ make test-e2e
 
 You can build either application alone with `make build-backend` or
 `make build-frontend`. The skill example checks also have `make check-skills` and
-`make test-skills` targets.
+`make test-skills` targets, which also cover the performance review tooling.
 
 Before the first integration run, install Chromium:
 
@@ -130,6 +130,7 @@ This is not a production deployment configuration.
 - [Skill discovery and manual environment activation](docs/workflow.md)
 - [Go implementation skill](.agents/skills/go-engineering/SKILL.md)
 - [Go review skill](.agents/skills/go-engineering-review/SKILL.md)
+- [Performance review skill](.agents/skills/performance-review/SKILL.md)
 - [Interactive planning skill](.agents/skills/implementation-planning/SKILL.md)
 - [Infrastructure guide](infra/terraform/README.md)
 

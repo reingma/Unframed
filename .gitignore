@@ -9,6 +9,7 @@ frontend/playwright-report/
 frontend/test-results/
 backend/bin/
 backend/coverage.out
+.perf/
 *.test
 
 # Local environment configuration (examples are safe to commit)

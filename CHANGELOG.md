@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Performance review skill for backend and frontend changes, judging measured cost
+  against the changelog and diff, with Go benchmark tooling that records runs and
+  compares them through a pinned benchstat without accepting missing or failed baselines.
 - Go engineering review skill that applies the shared Go principles and separates
   defects, uncertainties, trade-offs and preferences, with synthetic review cases.
 - Interactive implementation-planning skill with required discussion coverage,

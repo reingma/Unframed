@@ -1,6 +1,7 @@
 .PHONY: setup dev-backend dev-frontend fmt check check-backend check-frontend check-skills test test-backend test-frontend test-skills build build-backend build-frontend test-e2e
 
 GO_SKILL_FILES := $(wildcard .agents/skills/go-engineering/assets/*.go)
+PERF_SKILL_FILES := $(wildcard .agents/skills/performance-review/scripts/*.go)
 
 setup:
 	cd backend && go mod download
@@ -15,7 +16,7 @@ dev-frontend:
 fmt:
 	cd backend && gofmt -w cmd internal
 	cd frontend && npm run fmt
-	gofmt -w $(GO_SKILL_FILES)
+	gofmt -w $(GO_SKILL_FILES) $(PERF_SKILL_FILES)
 
 check: check-backend check-frontend check-skills
 
@@ -29,8 +30,9 @@ check-frontend:
 	cd frontend && npm run typecheck
 
 check-skills:
-	test -z "$$(gofmt -l $(GO_SKILL_FILES))"
+	test -z "$$(gofmt -l $(GO_SKILL_FILES) $(PERF_SKILL_FILES))"
 	GOEXPERIMENT=jsonv2 go vet $(GO_SKILL_FILES)
+	GOEXPERIMENT=jsonv2 go vet $(PERF_SKILL_FILES)
 
 test: test-backend test-frontend test-skills
 
@@ -42,6 +44,7 @@ test-frontend:
 
 test-skills:
 	GOEXPERIMENT=jsonv2 go test -race $(GO_SKILL_FILES)
+	GOEXPERIMENT=jsonv2 go test -race $(PERF_SKILL_FILES)
 
 build: build-backend build-frontend
 

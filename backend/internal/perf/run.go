@@ -16,6 +16,9 @@ func RunHTTPWorkload(ctx context.Context, w Workload, env Environment) (RunArtif
 	if w.Kind != KindHTTP {
 		return RunArtifact{}, fmt.Errorf("workload %q kind %q is not http", w.ID, w.Kind)
 	}
+	if w.Rate == nil || *w.Rate <= 0 {
+		return RunArtifact{}, fmt.Errorf("workload %q requires a positive rate", w.ID)
+	}
 	duration, err := time.ParseDuration(w.Duration)
 	if err != nil || duration <= 0 {
 		return RunArtifact{}, fmt.Errorf("workload %q has invalid duration %q", w.ID, w.Duration)
@@ -24,7 +27,9 @@ func RunHTTPWorkload(ctx context.Context, w Workload, env Environment) (RunArtif
 		Method: http.MethodGet,
 		URL:    w.Target,
 	})
-	attacker := vegeta.NewAttacker()
+	// Redirects(0): the loopback target contract applies to every request,
+	// not just the first hop — a redirect must be a sample, not a bypass.
+	attacker := vegeta.NewAttacker(vegeta.Redirects(0))
 	rate := vegeta.Rate{Freq: 1, Per: time.Duration(float64(time.Second) / *w.Rate)}
 
 	done := make(chan struct{})
@@ -45,6 +50,9 @@ func RunHTTPWorkload(ctx context.Context, w Workload, env Environment) (RunArtif
 			Status:  int(res.Code),
 			Error:   res.Error,
 		})
+	}
+	if err := ctx.Err(); err != nil {
+		return RunArtifact{}, fmt.Errorf("workload %q interrupted: %w", w.ID, err)
 	}
 	return RunArtifact{
 		Version:     SchemaVersion,

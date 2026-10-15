@@ -10,7 +10,15 @@ import (
 
 // WriteHTML renders a comparison as a self-contained HTML report with inline
 // SVG histograms. Reports are generated on demand and never committed.
-func (c Comparison) WriteHTML(w io.Writer) {
+func (c Comparison) WriteHTML(w io.Writer) error {
+	var sb strings.Builder
+	c.writeHTML(&sb)
+	_, err := w.Write([]byte(sb.String()))
+	return err
+}
+
+// writeHTML renders the report markup into w.
+func (c Comparison) writeHTML(w io.Writer) {
 	esc := html.EscapeString
 	fmt.Fprint(w, `<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">

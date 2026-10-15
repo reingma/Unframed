@@ -113,6 +113,7 @@ func TestParseRunArtifactRejects(t *testing.T) {
 		"unknown member": strings.Replace(string(valid), `"version": 1`, `"version": 1, "extra": true`, 1),
 		"bad version":    strings.Replace(string(valid), `"version": 1`, `"version": 2`, 1),
 		"empty id":       strings.Replace(string(valid), `"workload_id": "backend-healthcheck"`, `"workload_id": ""`, 1),
+		"bad id shape":   strings.Replace(string(valid), `"workload_id": "backend-healthcheck"`, `"workload_id": "Has Space"`, 1),
 		"bad kind":       strings.Replace(string(valid), `"kind": "http"`, `"kind": "rpc"`, 1),
 		"empty machine":  strings.Replace(string(valid), `"machine": "workstation-1"`, `"machine": ""`, 1),
 	}
@@ -120,6 +121,16 @@ func TestParseRunArtifactRejects(t *testing.T) {
 		if _, err := ParseRunArtifact([]byte(doc)); err == nil {
 			t.Errorf("%s: expected parse error", name)
 		}
+	}
+
+	empty := testArtifact()
+	empty.Samples[0].Metrics = nil
+	emptyDoc, err := MarshalRunArtifact(empty)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ParseRunArtifact(emptyDoc); err == nil {
+		t.Error("sample without metrics: expected parse error")
 	}
 }
 
@@ -129,11 +140,13 @@ func TestParseHistoryRecordRejects(t *testing.T) {
 		t.Fatal(err)
 	}
 	cases := map[string]string{
-		"unknown member": strings.Replace(string(valid), `"version": 1`, `"version": 1, "extra": 1`, 1),
-		"bad version":    strings.Replace(string(valid), `"version": 1`, `"version": 9`, 1),
-		"bad revision":   strings.Replace(string(valid), `"e461931122f0d9f2b1a3c4e5f60718293a4b5c6d"`, `"notasha"`, 1),
-		"empty tag":      strings.Replace(string(valid), `"tag": "ENG-30"`, `"tag": ""`, 1),
-		"zero sequence":  strings.Replace(string(valid), `"sequence": 1`, `"sequence": 0`, 1),
+		"unknown member":   strings.Replace(string(valid), `"version": 1`, `"version": 1, "extra": 1`, 1),
+		"bad version":      strings.Replace(string(valid), `"version": 1`, `"version": 9`, 1),
+		"bad revision":     strings.Replace(string(valid), `"e461931122f0d9f2b1a3c4e5f60718293a4b5c6d"`, `"notasha"`, 1),
+		"empty tag":        strings.Replace(string(valid), `"tag": "ENG-30"`, `"tag": ""`, 1),
+		"zero sequence":    strings.Replace(string(valid), `"sequence": 1`, `"sequence": 0`, 1),
+		"bad workload id":  strings.Replace(string(valid), `"id": "backend-healthcheck"`, `"id": "Has Space"`, 1),
+		"unknown quantile": strings.Replace(string(valid), `"p99": 10`, `"p99": 10, "p999": 10`, 1),
 	}
 	for name, doc := range cases {
 		if _, err := ParseHistoryRecord([]byte(doc)); err == nil {

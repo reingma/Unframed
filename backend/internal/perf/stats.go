@@ -19,6 +19,8 @@ var quantilePoints = []struct {
 	{"p99", 0.99},
 }
 
+var quantileKeys = map[string]bool{"p50": true, "p90": true, "p95": true, "p99": true}
+
 // ComputeStats reduces raw metric values to sufficient statistics: count,
 // mean, sample variance (n-1), nearest-rank quantiles and an equal-width
 // histogram over [min, max].

@@ -235,8 +235,7 @@ func cmdCompare(_ context.Context, args []string) error {
 		fmt.Println(string(out))
 		return nil
 	}
-	cmp.WriteText(os.Stdout)
-	return nil
+	return cmp.WriteText(os.Stdout)
 }
 
 func cmdReport(_ context.Context, args []string) error {
@@ -262,8 +261,13 @@ func cmdReport(_ context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
-	perf.CompareRecords(nameA, a, nameB, b).WriteHTML(f)
+	if err := perf.CompareRecords(nameA, a, nameB, b).WriteHTML(f); err != nil {
+		f.Close()
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
 	slog.Info("report written", "path", *out)
 	return nil
 }

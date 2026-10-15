@@ -111,31 +111,34 @@ func CompareRecords(nameA string, a HistoryRecord, nameB string, b HistoryRecord
 }
 
 // WriteText renders a comparison as a plain-text table.
-func (c Comparison) WriteText(w io.Writer) {
-	fmt.Fprintf(w, "A: %s (seq %d, %s, %s)\n", c.NameA, c.RecordA.Sequence, c.RecordA.Tag, c.RecordA.Revision[:8])
-	fmt.Fprintf(w, "B: %s (seq %d, %s, %s)\n", c.NameB, c.RecordB.Sequence, c.RecordB.Tag, c.RecordB.Revision[:8])
+func (c Comparison) WriteText(w io.Writer) error {
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "A: %s (seq %d, %s, %s)\n", c.NameA, c.RecordA.Sequence, c.RecordA.Tag, c.RecordA.Revision[:8])
+	fmt.Fprintf(&sb, "B: %s (seq %d, %s, %s)\n", c.NameB, c.RecordB.Sequence, c.RecordB.Tag, c.RecordB.Revision[:8])
 	if !c.EnvMatch {
-		fmt.Fprintln(w, "WARNING: records come from different environments; deltas are not directly comparable.")
-		fmt.Fprintf(w, "  A environment: %+v\n", c.RecordA.Environment)
-		fmt.Fprintf(w, "  B environment: %+v\n", c.RecordB.Environment)
+		fmt.Fprintln(&sb, "WARNING: records come from different environments; deltas are not directly comparable.")
+		fmt.Fprintf(&sb, "  A environment: %+v\n", c.RecordA.Environment)
+		fmt.Fprintf(&sb, "  B environment: %+v\n", c.RecordB.Environment)
 	}
-	fmt.Fprintln(w)
-	fmt.Fprintf(w, "%-24s %-14s %8s %8s %14s %14s %14s %26s\n",
+	fmt.Fprintln(&sb)
+	fmt.Fprintf(&sb, "%-24s %-14s %8s %8s %14s %14s %14s %26s\n",
 		"workload", "metric", "n(A)", "n(B)", "mean(A)", "mean(B)", "delta", "95% CI")
 	for _, d := range c.Deltas {
-		fmt.Fprintf(w, "%-24s %-14s %8d %8d %14.1f %14.1f %+14.1f [%+.1f, %+.1f]\n",
+		fmt.Fprintf(&sb, "%-24s %-14s %8d %8d %14.1f %14.1f %+14.1f [%+.1f, %+.1f]\n",
 			d.WorkloadID, d.Metric, d.AValues, d.BValues, d.AMean, d.BMean, d.Delta, d.CILow, d.CIHigh)
 		for _, key := range []string{"p50", "p90", "p95", "p99"} {
 			if qd, ok := d.QuantileDeltas[key]; ok {
-				fmt.Fprintf(w, "%-24s %-14s %8s %8s %14s %14s %+14.1f\n",
+				fmt.Fprintf(&sb, "%-24s %-14s %8s %8s %14s %14s %+14.1f\n",
 					"", key, "", "", "", "", qd)
 			}
 		}
 	}
 	if len(c.OnlyInA) > 0 {
-		fmt.Fprintf(w, "\nOnly in A: %s\n", strings.Join(c.OnlyInA, ", "))
+		fmt.Fprintf(&sb, "\nOnly in A: %s\n", strings.Join(c.OnlyInA, ", "))
 	}
 	if len(c.OnlyInB) > 0 {
-		fmt.Fprintf(w, "\nOnly in B: %s\n", strings.Join(c.OnlyInB, ", "))
+		fmt.Fprintf(&sb, "\nOnly in B: %s\n", strings.Join(c.OnlyInB, ", "))
 	}
+	_, err := w.Write([]byte(sb.String()))
+	return err
 }

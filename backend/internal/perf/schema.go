@@ -119,6 +119,9 @@ func validKind(kind string) bool {
 }
 
 func validSample(s Sample) error {
+	if len(s.Metrics) == 0 {
+		return fmt.Errorf("sample has no metrics")
+	}
 	for name, v := range s.Metrics {
 		if math.IsNaN(v) || math.IsInf(v, 0) {
 			return fmt.Errorf("metric %q has non-finite value", name)
@@ -131,8 +134,8 @@ func (a *RunArtifact) validate() error {
 	switch {
 	case a.Version != SchemaVersion:
 		return fmt.Errorf("unsupported artifact version %d", a.Version)
-	case a.WorkloadID == "":
-		return fmt.Errorf("workload_id is empty")
+	case !workloadIDPattern.MatchString(a.WorkloadID):
+		return fmt.Errorf("workload_id %q must match %s", a.WorkloadID, workloadIDPattern)
 	case !validKind(a.Kind):
 		return fmt.Errorf("invalid kind %q", a.Kind)
 	case a.StartedAt.IsZero():
@@ -179,6 +182,11 @@ func (s MetricStats) validate() error {
 		return fmt.Errorf("variance must be finite and non-negative")
 	case s.Min > s.Max:
 		return fmt.Errorf("min %v exceeds max %v", s.Min, s.Max)
+	}
+	for key := range s.Quantiles {
+		if !quantileKeys[key] {
+			return fmt.Errorf("unknown quantile %q", key)
+		}
 	}
 	for _, key := range []string{"p50", "p90", "p95", "p99"} {
 		v, ok := s.Quantiles[key]
@@ -233,8 +241,8 @@ func (r *HistoryRecord) validate() error {
 	seen := map[string]bool{}
 	for _, w := range r.Workloads {
 		switch {
-		case w.ID == "":
-			return fmt.Errorf("workload id is empty")
+		case !workloadIDPattern.MatchString(w.ID):
+			return fmt.Errorf("workload id %q must match %s", w.ID, workloadIDPattern)
 		case seen[w.ID]:
 			return fmt.Errorf("duplicate workload id %q", w.ID)
 		case !validKind(w.Kind):

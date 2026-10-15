@@ -45,7 +45,9 @@ func TestCompareRecordsEnvironmentMismatch(t *testing.T) {
 		t.Error("expected environment mismatch to be flagged")
 	}
 	var out strings.Builder
-	c.WriteText(&out)
+	if err := c.WriteText(&out); err != nil {
+		t.Fatal(err)
+	}
 	if !strings.Contains(out.String(), "different environments") {
 		t.Error("text output does not flag the mismatch")
 	}

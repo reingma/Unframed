@@ -111,8 +111,11 @@ func LoadRunDir(dir string) ([]RunArtifact, error) {
 	return artifacts, nil
 }
 
+var runDirPattern = regexp.MustCompile(`^\d{8}T\d{6}$`)
+
 // LatestRunDir returns the newest run directory under runsDir by name.
-// Run directories are UTC timestamped, so lexical order is chronological.
+// Run directories are UTC timestamped, so lexical order is chronological;
+// stray non-run directories are ignored.
 func LatestRunDir(runsDir string) (string, error) {
 	entries, err := os.ReadDir(runsDir)
 	if err != nil {
@@ -120,7 +123,7 @@ func LatestRunDir(runsDir string) (string, error) {
 	}
 	latest := ""
 	for _, e := range entries {
-		if e.IsDir() && e.Name() > latest {
+		if e.IsDir() && runDirPattern.MatchString(e.Name()) && e.Name() > latest {
 			latest = e.Name()
 		}
 	}
@@ -136,7 +139,7 @@ func RecordFileName(r HistoryRecord) string {
 	return fmt.Sprintf("%04d-%s.json", r.Sequence, r.Revision[:8])
 }
 
-var recordFilePattern = regexp.MustCompile(`^(\d{4})-([0-9a-f]{8})\.json$`)
+var recordFilePattern = regexp.MustCompile(`^(\d{4,})-([0-9a-f]{8})\.json$`)
 
 // LoadHistory reads and validates every committed record, sorted by
 // sequence. File name and embedded sequence must agree.

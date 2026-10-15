@@ -1,83 +1,53 @@
 ---
 name: go-engineering
-description: Implement authorized Go changes with parse-at-boundary domain types, meaningful interfaces, flexible invariant-focused tests, early performance measurements, and correlated request observability. Use when executing an implementation issue involving Go code; not as authorization to implement a plan or as a substitute for independent review.
+description: Implement explicitly authorized Go changes with boundary-parsed domain types, meaningful interfaces, invariant-focused tests, early performance evidence, and correlated request observability. Use for Go implementation issues, not planning or independent review.
 ---
 
 # Go engineering implementation
 
-## Activation and authority
+## Authority and required context
 
-Use during an explicitly authorized Go implementation issue. First establish the
-human authorization, approved scope, and repository rules. Missing authorization
-means stop before changing code; a skill invocation, issue status, or approved
-plan does not supply it. This skill is guidance, not a permission mechanism.
+Obtain explicit human implementation authorization and scope; stop if missing.
+Skill invocation, issue status and approved planning are not permission.
+Read the current issue/acceptance criteria, host instructions/architecture/decisions,
+native tooling, relevant evidence and human feedback. Resolve consequential gaps.
 
-## Inputs
+Read [shared principles](references/principles.md) before design: the single
+implementation/review method source. [Worked examples](references/examples.md)
+are optional; consult only relevant sections for types/null parsing, replaceable
+lookup contracts, measurements or context propagation. Read `assets/` only when
+inspecting/adapting that exercise; native checks can run without reading its source.
+Do not load examples, assets or token reports by default.
 
-- Current issue and acceptance criteria, authorization, and unresolved decisions.
-- Repository instructions, architecture/decisions, toolchain and native commands.
-- Changed boundaries, input sources, core invariants and credible alternatives.
-- Relevant tests, workloads/baselines, telemetry conventions, and human feedback.
+## Workflow
 
-Read [the shared principles](references/principles.md) before designing the change.
-That file is the common implementation/review source, not a separate review
-checklist. Consult [worked examples](references/examples.md) for concrete choices,
-commands, and an isolated executable exercise.
+1. Establish inputs, invariants, failure/zero-value semantics and external-state
+   checks; separate requirements from assumptions.
+2. Apply shared principles to types/interfaces and credible alternatives; choose
+   the smallest sufficient change and explain consequential costs.
+3. Select meaningful performance evidence early; capture available baselines.
+4. Implement using host patterns, preserving context and safe request correlation.
+5. Verify contracts/failure paths with appropriate tests, static checks, builds
+   and measurements; run commands and inspect outputs. Failed, unavailable or
+   inconclusive evidence is not a pass. Contract changes require approval, not
+   weaker tests.
+6. Prepare independent review; passing tests alone does not establish correctness.
 
-## Procedure
+## Handoff
 
-1. **Establish the contract.** Identify boundary inputs, promised behavior,
-   failure semantics, zero-value behavior, and facts depending on authorization
-   or mutable external state. Separate requirements from assumptions; ask about
-   consequential gaps rather than silently choosing a new contract.
-2. **Choose representations and boundaries.** Apply the shared principles to
-   parsing/domain types and credible implementation alternatives. Explain the
-   protected invariant, useful replaceability, and abstraction cost. Prefer the
-   smallest change satisfying the issue, not wrappers/interfaces everywhere.
-3. **Choose performance evidence early.** Identify a meaningful workload before
-   implementing an expensive path. Capture a baseline when available, including
-   revision, environment, input size/distribution, command and raw output. Avoid
-   obviously poor complexity; compare credible choices without imposing an
-   unapproved performance budget or mandatory library substitution.
-4. **Implement and instrument.** Follow existing patterns and native tooling.
-   Preserve context across boundaries; correlate structured logs/spans with the
-   request path, without payload/secret leakage or speculative telemetry services.
-5. **Verify behavior.** Write tests for contracts and failure paths. Choose unit,
-   integration, property/fuzz and performance checks by the claim being tested.
-   Ordinary substitutions should preserve contract tests. A deliberate contract
-   change requires design reconsideration and human approval, not weaker tests.
-   Run formatting/static checks, relevant tests/builds, and actual measurements;
-   inspect outputs. Failed, unavailable or inconclusive evidence is not a pass.
-6. **Prepare independent review.** Report the evidence and trade-offs below, so
-   a reviewer can evaluate the same principles without adopting the author's
-   assumptions. Tests and review complement one another. Do not declare the
-   change verified solely because the test suite passes.
+Report authorization/issue, revision/scope, intent, invariants, alternatives/costs,
+actual commands/results, performance workload/environment/raw comparisons,
+context/correlation and sensitive-data checks, limitations and approval/review gaps.
+Separate measured facts from hypotheses; invent no coverage, budgets or deployment
+facts. Durable feedback refinements require explicit agreement and reviewed changes.
 
-## Expected handoff evidence
+## Host adapter and limits
 
-- Issue/authorization, reviewed revision or working-tree scope, and change intent.
-- Protected invariants, boundary/type/interface choices, alternatives and costs.
-- Actual formatting/static/test/build commands and outcomes; failure-path and
-  property/fuzz coverage where meaningful, plus what remains untested.
-- Performance baseline/current workload, environment, raw results and limitations;
-  distinguish observations from attribution hypotheses and accepted feature cost.
-- Request-context propagation/correlation evidence, sensitive-data exclusions,
-  and material logging/tracing overhead or gaps.
-- Scope deviations, consequential decisions needing approval, and review gaps.
+Follow host rules and approved library preferences. In Unframed, use `AGENTS.md`
+and `docs/workflow.md`; application/tests/examples prefer `encoding/json/v2` and
+require `GOEXPERIMENT=jsonv2`. The exercise is not an application feature or
+production performance evidence.
 
-Do not invent performance thresholds, deployment facts, successful checks, or
-coverage. Apply relevant human feedback to this issue; propose lasting changes
-to the shared guidance separately for explicit agreement and reviewed changes.
-
-## Repository adapter and limits
-
-Use the host repository's authoritative instructions, architecture, native
-commands, verification and delivery conventions rather than copying them here.
-In Unframed, start with root `AGENTS.md` and `docs/workflow.md`; its application
-and example Go commands require `GOEXPERIMENT=jsonv2`. Follow the host's approved
-library preferences, including its JSON API choice. The bundled exercise is not an
-application feature, API design, performance budget, or production measurement.
-
-No cloud provisioning, new tracing backend, automatic fixes/review pipeline,
-global installation, agent profile/configuration change, security-gate bypass,
-production load generation, merge, or auto-merge is authorized by this skill.
+This skill authorizes no provisioning, new tracing backend, automatic fixes/review
+pipeline, global installation, agent/profile configuration, security-gate bypass,
+production load, merge or auto-merge.

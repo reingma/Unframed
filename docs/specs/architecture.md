@@ -153,6 +153,9 @@ Root instructions link to the skill; workflow guidance documents discovery and
 explicit activation fallbacks. Static/race example checks run through Make and CI;
 fuzz campaigns and operation benchmarks are manual, not performance gates. No
 reviewer profiles, global installation, or event-driven execution are configured.
+The skill entry point requires shared principles but loads examples only as needed.
+Per-skill `token-performance/analysis.md` reports retain factual token measurements
+and verification evidence outside the mandatory runtime loading path.
 
 `.devin/blueprint.yaml` defines a Linux x86-64 environment reviewed through PRs.
 It reads tool versions from repository metadata, checksum-verifies archives,

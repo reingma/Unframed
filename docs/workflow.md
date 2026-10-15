@@ -11,14 +11,17 @@ Repository-local skills use the open
 
 - [go-engineering](../.agents/skills/go-engineering/SKILL.md) owns the Go procedure
   and its required shared principles.
+- [go-engineering-review](../.agents/skills/go-engineering-review/SKILL.md) owns
+  the Go review procedure and finding format, using those same principles. Its
+  worked review cases are optional calibration.
 - [implementation-planning](../.agents/skills/implementation-planning/SKILL.md)
   owns interactive planning and its required method. Its formats and worked
   examples are optional illustrations, not product decisions or executed tests.
 
 [Devin CLI documents](https://docs.devin.ai/cli/extensibility/skills#where-skills-live)
 this location and slash-command activation. In a checkout containing the skill,
-confirm its name and description are discovered, invoke `/go-engineering` or
-`/implementation-planning`, and confirm its required reference is read.
+confirm its name and description are discovered, invoke `/go-engineering`,
+`/go-engineering-review` or `/implementation-planning`, and confirm its required reference is read.
 
 Other clients must verify their discovery mechanism. If search misses a skill,
 use explicit directory activation where supported, or read its linked entry point
@@ -30,8 +33,8 @@ auto-approvals, platform permissions, model overrides, subagent profiles or even
 triggers. [Host authority](../AGENTS.md#authority-and-required-context) still governs use.
 Global installation and reviewer wiring are separately scoped work.
 
-The Go implementation skill owns the shared method; future review skills should
-reference it rather than maintain a competing copy. Its worked examples introduce
+The Go implementation skill owns the shared method; the review skill references
+it rather than maintaining a competing copy. Its worked examples introduce
 no application feature, dependency or module. Native static and race checks run
 through Make and CI. Exercise-specific fuzz and benchmark commands live in
 [the worked exercise](../.agents/skills/go-engineering/references/examples.md).

@@ -20,6 +20,8 @@
   context instead of inventing it.
 - For authorized Go implementation, follow the
   [Go skill](.agents/skills/go-engineering/SKILL.md), including its required principles.
+- For an explicitly requested Go review, follow the
+  [Go review skill](.agents/skills/go-engineering-review/SKILL.md).
 - For implementation planning, follow the
   [planning skill](.agents/skills/implementation-planning/SKILL.md) and complete
   its interactive discussion before settling the design.

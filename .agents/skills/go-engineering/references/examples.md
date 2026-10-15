@@ -28,6 +28,43 @@ Authorization and whether a record exists remain separate checks. By contrast,
 wrapping a loop index in a private struct with a constructor would add friction
 without protecting a useful domain invariant.
 
+## Nullable wire input: resolve absence before construction
+
+`ParseKeyInput` is a JSON-boundary adapter for a required key. Its temporary wire
+representation uses `*string`: an absent field and explicit JSON `null` both
+decode to `nil`. The adapter rejects either before dereferencing or calling
+`ParseKey`. A present empty string is not null, but still violates the key grammar
+and is rejected by `ParseKey`. Only successful parsing returns an established
+domain key; failed parsing returns the invalid Go zero value **with an error**.
+Callers must handle that error rather than consume the returned key anyway.
+
+```go
+var input struct {
+    Key *string `json:"key"`
+}
+if err := json.Unmarshal(raw, &input); err != nil {
+    return Key{}, ErrInvalidKey
+}
+if input.Key == nil {
+    return Key{}, ErrInvalidKey
+}
+return ParseKey(*input.Key)
+```
+
+`TestParseKeyInput` covers valid input, a null document, missing/null/empty keys,
+wrong JSON types, invalid grammar and malformed JSON. Nullable values remain at
+the wire boundary; downstream lookup still consumes `Key`, not `*string`.
+
+This example deliberately treats missing and null as equivalent errors for a
+required field. If an optional update distinguishes "not supplied" from "clear
+this value", use presence-aware parsing instead; do not collapse those states or
+invent a default domain key. It uses the standard decoder's field matching and
+unknown/duplicate-field behavior, not a universal JSON API policy. Never decode
+directly into a domain representation in a way that bypasses its constructor:
+JSON `null` can leave non-pointer Go values unchanged, including invalid zero
+values. The existing zero-key guard at the public read boundary remains useful
+for callers that bypass this adapter; it does not replace parsing wire input.
+
 ## Interfaces: replace an implementation, preserve its promises
 
 The consumer needs only this contract:

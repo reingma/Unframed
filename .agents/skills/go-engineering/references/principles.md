@@ -20,6 +20,11 @@ unexported fields and parsing/constructors. Go structs still have a zero value,
 and code in the declaring package can bypass construction: explicitly decide
 whether zero is useful or must be rejected at an exported entry boundary.
 Unmarshal/database paths must also establish the invariant, not bypass it.
+Resolve missing, null and zero inputs at that parsing boundary according to the
+contract, before constructing required domain values. Use nullable/presence-aware
+wire representations when needed; distinguish omission from explicit null if
+they have different meanings. Never ignore a parse error and consume its zero
+result as valid, or invent a default merely to avoid handling absence.
 
 Do not wrap every scalar or introduce constructor ceremony without a useful
 guarantee. Prefer ergonomic representations when all underlying values are valid.

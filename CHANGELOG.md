@@ -10,7 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Portable Go engineering implementation skill with shared review principles,
-  invariant-focused examples, fuzzing/benchmarks, and request-correlation checks.
+  invariant-focused boundary/null-handling examples, fuzzing/benchmarks, and
+  request-correlation checks.
 - Agent-neutral development instructions, a verification-focused PR template, and
   a reviewable Git-backed development environment blueprint with manual activation.
 

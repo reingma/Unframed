@@ -2,6 +2,7 @@ package engineering
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
 )
@@ -30,6 +31,19 @@ func ParseKey(raw string) (Key, error) {
 
 func (key Key) String() string {
 	return key.value
+}
+
+func ParseKeyInput(raw []byte) (Key, error) {
+	var input struct {
+		Key *string `json:"key"`
+	}
+	if err := json.Unmarshal(raw, &input); err != nil {
+		return Key{}, ErrInvalidKey
+	}
+	if input.Key == nil {
+		return Key{}, ErrInvalidKey
+	}
+	return ParseKey(*input.Key)
 }
 
 type Record struct {

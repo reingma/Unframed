@@ -84,6 +84,24 @@ func TestParseKey(t *testing.T) {
 	}
 }
 
+func TestParseKeyInput(t *testing.T) {
+	key, err := ParseKeyInput([]byte(`{"key":"record-1"}`))
+	if err != nil || key.String() != "record-1" {
+		t.Fatalf("valid input = %q, %v", key.String(), err)
+	}
+	for _, raw := range []string{
+		`null`, `{}`, `{"key":null}`, `{"key":""}`, `{"key":"../record"}`,
+		`{"key":0}`, `{"key":false}`, `{"key":{}}`, `[]`, `{"key":`,
+	} {
+		t.Run(raw, func(t *testing.T) {
+			key, err := ParseKeyInput([]byte(raw))
+			if !errors.Is(err, ErrInvalidKey) || key != (Key{}) {
+				t.Fatalf("invalid wire input escaped: %q, %v", key.String(), err)
+			}
+		})
+	}
+}
+
 func TestReadContract(t *testing.T) {
 	key := mustKey(t, "record-1")
 	want := Record{Key: key, Payload: "private-payload"}

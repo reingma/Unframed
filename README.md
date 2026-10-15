@@ -133,6 +133,7 @@ This is not a production deployment configuration.
 - [Performance review skill](.agents/skills/performance-review/SKILL.md)
 - [Security review skill](.agents/skills/security-review/SKILL.md)
 - [Interactive planning skill](.agents/skills/implementation-planning/SKILL.md)
+- [Roles and review handoffs](docs/review-handoffs.md)
 - [Infrastructure guide](infra/terraform/README.md)
 
 The [blueprint](.devin/blueprint.yaml) defines the development environment.

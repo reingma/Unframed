@@ -100,6 +100,9 @@ The [security review skill](../../.agents/skills/security-review/SKILL.md) revie
 changed code against specific security practices in its exposure and execution
 context for requested reviews, using only CI/CD artifacts. CI produces no
 dependency audit or secret-scan output, and there is no security gate.
+The three reviews also run as read-only Devin CLI subagent profiles in
+[.agents/agents/](../../.agents/agents/), started manually as
+[review handoffs](../review-handoffs.md) describes; nothing triggers them.
 The [planning skill](../../.agents/skills/implementation-planning/SKILL.md)
 provides its interactive method and optional issue formats and examples.
 [Workflow guidance](../workflow.md#repository-skills) owns discovery, loading and

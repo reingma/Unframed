@@ -30,12 +30,20 @@ architecture and native commands remain in the existing repository entry points.
 this project discovery location and `/go-engineering` invocation. In a session
 using a checkout containing the skill, confirm the name and description are
 discovered, invoke it, and confirm the shared principles are loaded before work.
+The [implementation-planning skill](../.agents/skills/implementation-planning/SKILL.md)
+uses the same location and explicit `/implementation-planning` activation for
+planning tasks. It requires its method reference and loads issue formats/examples
+only as needed. Root instructions require an interactive discussion round before
+design is settled; detailed coverage, records and traced follow-up proposals live
+with the skill, not in a competing policy copy. Its worked discussion is an
+illustrative fixture, not product approval, issue creation or test execution.
+
 Other clients must confirm their own discovery mechanism; do not assume support.
 When repository search does not discover it, use explicit skill-directory
 activation if supported, or read the linked instructions and references and
 report that fallback. File presence alone is not proof of runtime discovery.
 
-The skill has only portable name/description metadata: no tool auto-approvals,
+The skills have only portable name/description metadata: no tool auto-approvals,
 platform permissions, model override, subagent profile, or event trigger. Loading
 it cannot replace authorization or enforce a permission boundary. Global/account
 installation and reviewer wiring require their separately authorized work.

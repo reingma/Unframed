@@ -11,6 +11,11 @@
 - For authorized Go implementation work, load the
   [Go engineering skill](.agents/skills/go-engineering/SKILL.md) and its shared
   principles. Skill activation does not grant execution authority.
+- For implementation-planning tasks, use the
+  [planning skill](.agents/skills/implementation-planning/SKILL.md). Discuss security,
+  early performance evidence, telemetry, verification and relevant library/interface
+  choices interactively before settling design; record decisions, open questions
+  or justified contextual deferrals. The skill owns the detailed method.
 - Gabriel reviews and decides whether to merge. Never merge or enable auto-merge.
 - Before implementation, read the current Linear issue and acceptance criteria,
   [README](README.md), [living architecture](docs/specs/architecture.md), relevant

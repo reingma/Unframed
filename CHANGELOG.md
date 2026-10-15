@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Interactive implementation-planning skill with required discussion coverage,
+  linked follow-up issue formats and scoped examples, without implementation authority.
 - Portable Go engineering implementation skill with shared review principles,
   invariant-focused boundary/null-handling examples, fuzzing/benchmarks, and
   request-correlation checks, following the repository-wide JSON v2 preference.

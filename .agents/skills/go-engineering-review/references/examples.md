@@ -29,7 +29,7 @@ invalid keys or cancellation.
 
 > **Uncertainty, blocking.** `store_test.go` does not check the `Lookup` contract:
 > missing keys, invalid input and cancellation are untested, so an approved
-> criterion has no evidence. Run the shared contract tests against both stores.
+> criterion has no evidence. Ask for the shared contract tests to cover both stores.
 >
 > **Defect, blocking.** The index-size and exact-log assertions would fail if the
 > linear store were swapped in, breaking the shared verification method. Drop

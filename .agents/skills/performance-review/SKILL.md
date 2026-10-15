@@ -1,6 +1,6 @@
 ---
 name: performance-review
-description: Review the performance impact of backend or frontend changes by running comparable baseline and current measurements, inspecting raw output, and judging cost against the changelog, diff and any recorded history. Use when explicitly asked for a performance review, not for implementation or general code review.
+description: Review the performance impact of backend or frontend changes by analyzing supplied performance artifacts against the changelog, diff and any recorded history, and flagging where new performance tests are needed. Never runs benchmarks or tests. Use when explicitly asked for a performance review, not for implementation or general code review.
 ---
 
 # Performance review
@@ -9,41 +9,44 @@ description: Review the performance impact of backend or frontend changes by run
 
 Follow the host's authority and delivery rules; skill activation grants no permission.
 A review does not authorize optimizing code, commits, approvals or merges.
-Identify the review scope, baseline and current revisions, affected areas, workloads,
-existing test commands and results, environment, any agreed budgets, recorded
-performance history, and the owner's applicable review responses in the
-request, PR threads or issue comments. Report missing
-context as a gap instead of assuming it.
+Identify the review scope, baseline and current revisions, affected areas, any
+agreed budgets, and the owner's applicable review responses in the request, PR
+threads or issue comments. Collect the performance artifacts that exist: CI
+benchmark and comparison output, load-test results, frontend build or runtime
+measurements, profiles and recorded history. Report missing context as a gap
+instead of assuming it.
 
 Read the shared
 [measurement method](../go-engineering/references/principles.md#performance-conscious-design-and-early-measurements)
-before measuring; it applies to every stack. Load the
-[tooling guide](references/tooling.md) to run Go benchmark comparisons, and the
+to judge the artifacts; it applies to every stack. Load the
 [worked review](references/examples.md) only to calibrate findings. Do not
-routinely load examples, scripts or token reports.
+routinely load examples or token reports.
 
 ## Procedure
+
+Never run benchmarks, tests, profilers, builds or load. Measurements are produced
+by CI or the change's author; if needed evidence is missing, request it.
 
 1. Establish intent. Read the changelog between the baseline and current revisions,
    then the actual diff; the changelog is a summary, not exhaustive evidence. Note
    what each change is expected to cost and which areas it touches.
-2. Select workloads for those areas: operation benchmarks, application-path or
-   load tests, and frontend build or runtime measurements. If nothing measures an
-   affected area, report the missing measurement. A static reading or fixture
-   benchmark is not evidence of application performance.
-3. Run the baseline and current revisions on the same machine, toolchain and
-   configuration, with repetitions. Record revisions, commands, workload and
-   data, environment, units and variance. Report no comparison when the baseline
-   is missing, a run failed, or the configurations differ. Repeat the comparison
-   when a change is small or the machine is shared, and attribute only changes
-   that persist across repeats.
-4. Inspect the raw output and comparisons, not only summaries. Where recorded
-   history exists for an affected area, compare the current result with its
-   trend too, and check that shifts line up with the changes the changelog
-   records. History from another machine or configuration is context, not a
-   before/after measurement.
-5. Profile or run focused measurements when attribution matters. Report measured
-   facts separately from attribution hypotheses.
+2. Check each artifact is comparable: same workload, machine, toolchain and
+   configuration for baseline and current, with revisions, commands, units,
+   repetitions and variance recorded. A failed or missing run gives no comparison.
+3. Read the raw output, not only summaries. Treat non-significant or reversing
+   results as noise. Where recorded history exists for an affected area, compare
+   the current result with its trend, and check that shifts line up with the
+   changes the changelog records. History from another machine or configuration
+   is context, not a before/after measurement.
+4. Mesh the measurements with the code. For each measured change, find the diff
+   that explains it. For each changed path, look for costs such as extra work per
+   item, allocations, I/O or queries in loops, contention, or added frontend
+   bundle or image weight, and check whether a measurement covers them. Report
+   measured facts separately from attribution hypotheses; a profile artifact can
+   confirm attribution, a code reading cannot.
+5. Flag missing performance tests: a changed or new path that no workload
+   exercises, a benchmark that does not reach the change, or an affected area with
+   no measurement. Name the workload and metric that would cover it.
 6. Apply the owner's relevant review reasoning, classify each finding, and drop
    speculative or duplicate findings.
 
@@ -55,16 +58,20 @@ routinely load examples, scripts or token reports.
 - **Accepted cost:** a measured cost the intended change explains, proportionate
   to its value and scope. Not blocking; record it. "New feature" does not excuse
   a cost unrelated to that feature, and a feature need not make the system slower.
-- **Uncertainty:** inconclusive or noisy results, a missing baseline, workload or
-  history, or an unattributed change. State what would resolve it.
+- **Missing performance test:** a path from step 5. Blocking when the path is
+  consequential or the change claims a performance effect.
+- **Uncertainty:** inconclusive or noisy results, incomparable artifacts, a
+  missing baseline or history, or a suspected cost the code suggests but no
+  measurement shows. State what would resolve it.
 - **Budget violation:** a result outside an agreed budget. Only where one exists;
   never invent thresholds.
 
 For each finding, give the workload and metric, baseline and current values with
-variance and repetitions, the revisions and environment, the related changelog or
-diff entry, the class and blocking rationale, and any gap. Report improvements as
-measured facts. End with the commands run, where the raw output is, and what was
-not measured. Local results do not establish production performance.
+variance and repetitions, the artifact and its revisions and environment, the
+related diff location or changelog entry, the class and blocking rationale, and
+any gap. Report improvements as measured facts. End with the artifacts inspected,
+what was not measured, and the tests requested. Fixture or local results do not
+establish production performance.
 
 ## Feedback refinements
 
@@ -74,14 +81,13 @@ Change this skill only after the owner's explicit agreement and a reviewed PR.
 
 ## Limits
 
-This skill does not change application code, add CI gates or automatic runs,
-require review on every PR, generate production load, use paid telemetry or
-provision cloud resources.
+This skill does not run anything, change application code, add CI gates or
+automatic runs, require review on every PR, generate production load, use paid
+telemetry or provision cloud resources.
 
 ## Unframed adapter
 
-Follow [AGENTS.md](../../../AGENTS.md) for host policy, including
-`GOEXPERIMENT=jsonv2` for Go commands. Keep raw results in the gitignored `.perf/`
-directory and summarize them with raw excerpts in the PR or review. No performance
-history or frontend tooling is defined yet; until they are, rerun the baseline
-and report missing frontend measurements.
+Follow [AGENTS.md](../../../AGENTS.md) for host policy. No CI performance job,
+performance history or frontend measurement exists yet; until the baseline work
+defines them, use artifacts attached to the PR or request and report what is
+missing.

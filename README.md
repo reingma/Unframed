@@ -73,7 +73,7 @@ make test-e2e
 
 You can build either application alone with `make build-backend` or
 `make build-frontend`. The skill example checks also have `make check-skills` and
-`make test-skills` targets, which also cover the performance review tooling.
+`make test-skills` targets.
 
 Before the first integration run, install Chromium:
 

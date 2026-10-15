@@ -93,9 +93,9 @@ implementation/review method and standalone examples compiled by file list.
 The [Go review skill](../../.agents/skills/go-engineering-review/SKILL.md) applies
 that method to requested reviews, with optional synthetic review cases.
 The [performance review skill](../../.agents/skills/performance-review/SKILL.md)
-runs requested performance reviews; its stdlib Go script records benchmark runs
-and compares them through a pinned benchstat. There is no performance history,
-frontend measurement tooling or performance gate.
+analyzes supplied performance artifacts against the diff for requested reviews
+and runs nothing. There is no CI performance job, performance history, frontend
+measurement or performance gate.
 The [planning skill](../../.agents/skills/implementation-planning/SKILL.md)
 provides its interactive method and optional issue formats and examples.
 [Workflow guidance](../workflow.md#repository-skills) owns discovery, loading and

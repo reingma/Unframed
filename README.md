@@ -1,42 +1,20 @@
 # Unframed
 
-A personal engineering blog, built in the open as an experiment in specification-driven,
-AI-assisted development with [Linear](https://linear.app) and Devin. AWS is an intended
-future hosting option; running the project does not require AWS or Vercel.
+A personal engineering blog, built in the open as an experiment in
+specification-driven, AI-assisted development with [Linear](https://linear.app)
+and Devin.
 
-This first skeleton contains a Go health API and a Next.js page that fetches and
-validates its response server-side. It does not implement blog content or deployment.
-
-## Repository
-
-```text
-backend/cmd/server/       Go executable
-backend/internal/router/  route registration and routing tests
-backend/internal/health/  health handler and contract test
-frontend/src/app/         Next.js App Router page, layout, and presentation
-frontend/src/lib/         server-only API communication and Zod validation
-frontend/e2e/             Playwright integration tests
-infra/terraform/         future infrastructure scope and guardrails
-docs/specs/              living architecture specification
-docs/decisions/          architectural decisions and rationale
-.github/workflows/       verification, not deployment
-AGENTS.md                instructions for all coding agents
-.devin/blueprint.yaml     reviewed development environment definition
-.agents/skills/          portable, repository-local engineering methods/examples
-```
+The [current architecture](docs/specs/architecture.md) describes the skeleton,
+its layout and contracts. [ADR 0001](docs/decisions/0001-monorepo-and-rendering-boundary.md)
+explains the application boundary and self-hosting choices.
 
 ## Fresh checkout
 
-Install **Go 1.26.9**, **Node 24.21.0 LTS**, **npm 11.19.0**, and **Make**.
-Go's version is pinned in `backend/go.mod`; Node's version is in `frontend/.nvmrc`.
+Install Go, Node with its bundled npm, and Make. Use the reviewed versions in
+[backend/go.mod](backend/go.mod), [frontend/.nvmrc](frontend/.nvmrc) and the
+`packageManager` field in [frontend/package.json](frontend/package.json).
 With [nvm](https://github.com/nvm-sh/nvm), run `nvm install` and `nvm use` inside
-`frontend/` to select Node. Use the bundled npm 11.19.0.
-
-The preferred JSON API for all repository Go code, tests and skill examples is
-standard-library `encoding/json/v2`, already used by the backend. It is experimental
-in Go 1.26 and requires `GOEXPERIMENT=jsonv2` at compile time. Make and CI set this
-flag; set it explicitly when using native Go commands. The API is not yet covered
-by Go's compatibility guarantee.
+`frontend/` to select the pinned Node release.
 
 From the repository root:
 
@@ -51,19 +29,18 @@ In a second terminal:
 make dev-frontend
 ```
 
-Visit **http://localhost:3000**. With Go running, the page shows “Backend available”
-and its actual `{"status":"ok"}` response. Stop Go and reload: the page shows
-“Backend unavailable.” Reloading checks again; there is no polling.
-
-The page fetches on each request with no caching and a two-second timeout.
-The endpoint checks backend liveness only, not readiness of future dependencies.
+Open **http://localhost:3000**. With Go running, the page shows “Backend available”
+and the response. Stop Go and reload to see “Backend unavailable.” Reloading
+checks again. See the [HTTP contract](docs/specs/architecture.md#http-and-rendering-contract)
+for the request path and failure behavior.
 
 ## Configuration
 
-| Variable       | Process        | Default                 | Purpose                                                            |
-| -------------- | -------------- | ----------------------- | ------------------------------------------------------------------ |
-| `BACKEND_ADDR` | Go             | `:8080`                 | Listen address, such as `127.0.0.1:9090`.                          |
-| `BACKEND_URL`  | Next.js server | `http://127.0.0.1:8080` | Absolute backend origin; `/healthcheck` is resolved from its root. |
+Configure the Go listen address with `BACKEND_ADDR` and the Next.js backend
+origin with `BACKEND_URL`. Their defaults live in
+[server setup](backend/cmd/server/main.go) and the
+[backend helper](frontend/src/lib/backend.ts), respectively. Follow the
+[server-only configuration contract](docs/specs/architecture.md#http-and-rendering-contract).
 
 For example, in the two terminals:
 
@@ -72,39 +49,44 @@ BACKEND_ADDR=127.0.0.1:9090 make dev-backend
 BACKEND_URL=http://127.0.0.1:9090 make dev-frontend
 ```
 
-Alternatively, copy `frontend/.env.example` to `frontend/.env.local` for local
-Next.js configuration. Restart Next.js after changing configuration. `BACKEND_URL`
-is server-only: never prefix it with `NEXT_PUBLIC_`. The browser does not fetch Go
-directly, so this slice needs no CORS configuration.
+Alternatively, copy [frontend/.env.example](frontend/.env.example) to
+`frontend/.env.local`. Restart Next.js after changing its configuration.
 
-## Commands
+## Commands and verification
 
-Run from the repository root:
+Run commands from the repository root. [Makefile](Makefile) owns the targets and
+their underlying native commands; [frontend/package.json](frontend/package.json)
+owns npm scripts.
 
-| Command                                 | Behavior                                                                     |
-| --------------------------------------- | ---------------------------------------------------------------------------- |
-| `make setup`                            | Download Go dependencies and install the npm lockfile with `npm ci`.         |
-| `make fmt`                              | Format Go and frontend source.                                               |
-| `make check`                            | Check Go formatting/vet and frontend Prettier/ESLint/TypeScript.             |
-| `make test`                             | Run Go race-enabled tests and frontend Vitest tests.                         |
-| `make build`                            | Build both applications independently; no live backend needed.               |
-| `make test-e2e`                         | Build production applications and run managed Playwright integration checks. |
-| `make check-skills`, `make test-skills` | Check the isolated Go skill examples; included in `check` and `test`.        |
+```sh
+make fmt
+make check
+make test
+make build
+make test-e2e
+```
 
-Before the first integration run, install the Chromium browser:
+You can build either application alone with `make build-backend` or
+`make build-frontend`. The skill example checks also have `make check-skills` and
+`make test-skills` targets.
+
+Before the first integration run, install Chromium:
 
 ```sh
 cd frontend
 npx playwright install chromium
-# Linux systems may also need system libraries: npx playwright install --with-deps chromium
+# Linux may also need: npx playwright install --with-deps chromium
 ```
 
-The integration suite starts and stops the compiled Go server and two production
-Next.js servers, for healthy and unreachable-backend scenarios. Ports `18080`,
-`18081`, `13000`, and `13001` must be unused. It does not reuse development servers.
-Traces are retained on failure; generated artifacts are ignored by Git.
+The integration suite manages its own compiled Go server and two production
+Next.js servers. Keep the ports declared in
+[frontend/playwright.config.ts](frontend/playwright.config.ts) unused; it does not
+reuse development servers. Failure traces are retained and generated artifacts
+are ignored by Git.
 
-Native commands are also supported:
+For native Go commands, first follow the
+[JSON API and build requirements](AGENTS.md#repository-preferences-and-boundaries).
+For example:
 
 ```sh
 # In backend/
@@ -125,34 +107,25 @@ npm run typecheck
 npm test
 npm run build
 npm run start
-# After both production builds above:
+# After both production builds:
 npm run test:e2e
 ```
 
-`npm run typecheck` generates Next.js route types before checking TypeScript, so
-it works without a prior development run. `make build-backend` and
-`make build-frontend` build either application alone. For production-style local
-verification, run `backend/bin/server` and `npm run start` inside `frontend/` after
-`make build`; this is not a production deployment configuration.
+The `typecheck` script generates route types before checking TypeScript, so a
+prior development run is unnecessary. For production-style local verification,
+run `backend/bin/server` and `npm run start` inside `frontend/` after `make build`.
+This is not a production deployment configuration.
 
-## Specifications and workflow
+## Documentation and workflow
 
-- [Current architecture — living specification](docs/specs/architecture.md)
-- [Specification and handoff conventions](docs/specs/README.md)
-- [Decisions and engineering-resource links](docs/decisions/README.md)
-- [Instructions for all coding agents](AGENTS.md)
-- [Workflow and manual blueprint activation](docs/workflow.md)
-- [Go engineering implementation skill](.agents/skills/go-engineering/SKILL.md)
-- [Interactive implementation-planning skill](.agents/skills/implementation-planning/SKILL.md)
-- [Terraform scope](infra/terraform/README.md)
+- [Instructions and policy for all coding agents](AGENTS.md)
+- [Current architecture](docs/specs/architecture.md)
+- [Specification index](docs/specs/README.md)
+- [Decisions and Engineering resources](docs/decisions/README.md)
+- [Skill discovery and manual environment activation](docs/workflow.md)
+- [Go implementation skill](.agents/skills/go-engineering/SKILL.md)
+- [Interactive planning skill](.agents/skills/implementation-planning/SKILL.md)
+- [Infrastructure guide](infra/terraform/README.md)
 
-Linear owns planned requirements, approval, and acceptance criteria. GitHub holds
-source, the living current architecture, decisions, and verification history.
-Implementation requires explicit human authorization; planning approval alone is
-not enough. Changes use the repository PR template, record notable changes under
-Unreleased, and are delivered on a linked feature-branch PR. Agents never merge.
-
-The Git-backed blueprint defines the development environment; it does not deploy
-the blog or automatically activate itself. The existing settings-managed
-installation requires manual switching, sync/build, and fresh-session verification
-after merge, as described in the workflow guide.
+The [blueprint](.devin/blueprint.yaml) defines the development environment.
+Its activation procedure is in the [workflow guide](docs/workflow.md#manual-activation-after-merge).

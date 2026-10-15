@@ -37,13 +37,5 @@ maintenance: |
   (cd frontend && npm install && npx playwright install --with-deps chromium)
 
 knowledge:
-  - name: lint
-    contents: make check
-  - name: test
-    contents: make test && make test-e2e
-  - name: build
-    contents: make build
-  - name: startup
-    contents: Run make dev-backend and make dev-frontend in separate terminals.
   - name: notes
-    contents: Read AGENTS.md and docs/workflow.md; native Go commands require GOEXPERIMENT=jsonv2.
+    contents: Read AGENTS.md for policy, README.md for setup and commands, and docs/workflow.md for environment operations.

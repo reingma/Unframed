@@ -19,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Consolidated documentation around canonical sources and readable prose, moved
+  existing ESLint rationale into an ADR, and replaced repeated skill/host policy
+  with links while preserving the methods, safeguards and executable environment.
 - Streamlined Go skill guidance with explicit on-demand examples and a colocated
   token-performance report convention, preserving shared principles and safeguards.
 

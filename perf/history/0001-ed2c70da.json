@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "sequence": 1,
+  "revision": "ed2c70da4c5e420fbbb1a9e2fa45155c38ca1d3f",
+  "tag": "ENG-30",
+  "recorded_at": "2026-10-15T20:11:22.82052307Z",
+  "environment": {
+    "machine": "workstation-1",
+    "os": "linux",
+    "arch": "amd64",
+    "cpu": "13th Gen Intel(R) Core(TM) i7-1360P",
+    "toolchain": "go1.27.2"
+  },
+  "workloads": [
+    {
+      "id": "backend-healthcheck",
+      "kind": "http",
+      "samples": 500,
+      "errors": 0,
+      "metrics": {
+        "latency_ns": {
+          "values": 500,
+          "mean": 740563.8880000005,
+          "variance": 55690421345.51847,
+          "min": 316892,
+          "max": 4270306,
+          "quantiles": {
+            "p50": 734327,
+            "p90": 920399,
+            "p95": 1037981,
+            "p99": 1385088
+          },
+          "histogram": {
+            "min": 316892,
+            "bucket_width": 98835.35,
+            "counts": [
+              5,
+              44,
+              60,
+              119,
+              149,
+              68,
+              24,
+              15,
+              7,
+              2,
+              2,
+              2,
+              1,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

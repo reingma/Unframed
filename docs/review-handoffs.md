@@ -6,13 +6,16 @@ method lives in its skill; this guide does not restate it.
 
 ## Roles
 
-| Role                 | How it runs                                                                                                              | Method                                                                                           |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
-| Planner              | Its own interactive terminal session: run `devin` in the checkout, then `/implementation-planning ENG-<n>`               | [implementation-planning](../.agents/skills/implementation-planning/SKILL.md)                    |
-| Implementer          | Its own interactive terminal session, only after Gabriel's explicit authorization: `/go-engineering ENG-<n>` for Go work | [go-engineering](../.agents/skills/go-engineering/SKILL.md), otherwise [AGENTS.md](../AGENTS.md) |
-| Go reviewer          | `go-reviewer` subagent profile                                                                                           | [go-engineering-review](../.agents/skills/go-engineering-review/SKILL.md)                        |
-| Performance reviewer | `performance-reviewer` subagent profile                                                                                  | [performance-review](../.agents/skills/performance-review/SKILL.md)                              |
-| Security reviewer    | `security-reviewer` subagent profile                                                                                     | [security-review](../.agents/skills/security-review/SKILL.md)                                    |
+- **Planner:** its own interactive terminal session. Run `devin` in the checkout,
+  then `/implementation-planning ENG-<n>`.
+- **Implementer:** its own interactive terminal session, only after Gabriel's
+  explicit authorization. Use `/go-engineering ENG-<n>` for Go work; otherwise
+  follow [AGENTS.md](../AGENTS.md).
+- **Go, performance and security reviewers:** the `go-reviewer`,
+  `performance-reviewer` and `security-reviewer` subagent profiles, following
+  [go-engineering-review](../.agents/skills/go-engineering-review/SKILL.md),
+  [performance-review](../.agents/skills/performance-review/SKILL.md) and
+  [security-review](../.agents/skills/security-review/SKILL.md).
 
 Planner and implementer are separate primary sessions so Gabriel converses with
 each directly and neither sees the other's conversation. They are not subagents:

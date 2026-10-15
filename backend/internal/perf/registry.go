@@ -34,6 +34,13 @@ type Registry struct {
 	Workloads []Workload `json:"workloads"`
 }
 
+// isSpaceOrControl reports whether r is an ASCII space, control character or
+// DEL. WHATWG URL parsing strips tabs and newlines, so route targets must
+// never carry them.
+func isSpaceOrControl(r rune) bool {
+	return r <= ' ' || r == 0x7f
+}
+
 // isLocalTarget enforces the local-only load-target contract: targets must
 // resolve to a loopback address so the registry can never aim load outward.
 func isLocalTarget(rawURL string) error {
@@ -89,7 +96,8 @@ func (w *Workload) validate() error {
 				return fmt.Errorf("browser workload %q: %w", w.ID, err)
 			}
 		} else if !strings.HasPrefix(w.Target, "/") || strings.HasPrefix(w.Target, "//") ||
-			strings.ContainsAny(w.Target, "\\") {
+			strings.ContainsAny(w.Target, "\\") ||
+			strings.IndexFunc(w.Target, isSpaceOrControl) >= 0 {
 			return fmt.Errorf("browser workload %q target %q is not a route path or local URL", w.ID, w.Target)
 		}
 	default:

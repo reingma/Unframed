@@ -30,7 +30,11 @@ func RunHTTPWorkload(ctx context.Context, w Workload, env Environment) (RunArtif
 	// Redirects(0): the loopback target contract applies to every request,
 	// not just the first hop — a redirect must be a sample, not a bypass.
 	attacker := vegeta.NewAttacker(vegeta.Redirects(0))
-	rate := vegeta.Rate{Freq: 1, Per: time.Duration(float64(time.Second) / *w.Rate)}
+	per := time.Duration(float64(time.Second) / *w.Rate)
+	if per <= 0 {
+		return RunArtifact{}, fmt.Errorf("workload %q rate %v is too high to schedule", w.ID, *w.Rate)
+	}
+	rate := vegeta.Rate{Freq: 1, Per: per}
 
 	done := make(chan struct{})
 	defer close(done)
@@ -43,7 +47,7 @@ func RunHTTPWorkload(ctx context.Context, w Workload, env Environment) (RunArtif
 	}()
 
 	started := time.Now().UTC()
-	var samples []Sample
+	samples := make([]Sample, 0, int(*w.Rate*duration.Seconds())+8)
 	for res := range attacker.Attack(targeter, rate, duration, w.ID) {
 		samples = append(samples, Sample{
 			Metrics: map[string]float64{"latency_ns": float64(res.Latency)},

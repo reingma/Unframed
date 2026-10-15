@@ -87,6 +87,7 @@ func cmdRun(ctx context.Context, args []string) error {
 	}
 	env := perf.DetectEnvironment(label)
 	runDir := filepath.Join(*runsDir, time.Now().UTC().Format("20060102T150405"))
+	ran := false
 	for _, w := range registry.Workloads {
 		if *only != "" && w.ID != *only {
 			continue
@@ -98,6 +99,7 @@ func cmdRun(ctx context.Context, args []string) error {
 			slog.Info("skipping non-http workload", "id", w.ID, "kind", w.Kind)
 			continue
 		}
+		ran = true
 		slog.Info("running workload", "id", w.ID, "target", w.Target)
 		artifact, err := perf.RunHTTPWorkload(ctx, w, env)
 		if err != nil {
@@ -129,6 +131,9 @@ func cmdRun(ctx context.Context, args []string) error {
 			}
 		}
 		slog.Info("workload complete", "id", w.ID, "samples", len(artifact.Samples), "errors", errCount, "artifact", path)
+	}
+	if *only != "" && !ran {
+		return fmt.Errorf("no workload matched --only %q", *only)
 	}
 	return nil
 }
@@ -166,6 +171,7 @@ func cmdCompress(_ context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
+	slog.Info("compressing run", "dir", dir, "artifacts", len(artifacts))
 	record, err := perf.BuildRecord(artifacts, rev, *tag, time.Now())
 	if err != nil {
 		return err

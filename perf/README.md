@@ -71,7 +71,9 @@ Records from different environments are flagged, never pooled.
 
 - Records are committed data; raw artifacts never enter git. A record's
   environment factor is the machine label plus OS, architecture, CPU and
-  toolchain captured at run time.
+  toolchain captured at run time. `toolchain` reports the Go toolchain that
+  built the measuring binary (and, under this procedure, the measured
+  server, since both build from the same go.mod pin).
 - `make check` parse-validates the registry and every committed record
   (schema version, name/sequence agreement, statistics sanity). It is a
   parse gate, not a performance gate.

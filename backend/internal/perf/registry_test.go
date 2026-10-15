@@ -53,6 +53,10 @@ func TestParseRegistryRejects(t *testing.T) {
 			{"id":"a","kind":"browser","target":"/\t/example.com","repetitions":3}]}`,
 		"browser newline target": `{"version":1,"workloads":[
 			{"id":"a","kind":"browser","target":"/\n/example.com","repetitions":3}]}`,
+		"browser carriage-return target": `{"version":1,"workloads":[
+			{"id":"a","kind":"browser","target":"/\r/example.com","repetitions":3}]}`,
+		"http userinfo target": `{"version":1,"workloads":[
+			{"id":"a","kind":"http","target":"http://user:pass@127.0.0.1:8080/x","rate":1,"duration":"1s"}]}`,
 		"browser space target": `{"version":1,"workloads":[
 			{"id":"a","kind":"browser","target":"/ foo","repetitions":3}]}`,
 		"bad id": `{"version":1,"workloads":[

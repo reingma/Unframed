@@ -13,7 +13,7 @@ func testEnvironment() Environment {
 		OS:        "linux",
 		Arch:      "amd64",
 		CPU:       "Test CPU",
-		Toolchain: "go1.26.9",
+		Toolchain: "go1.27.2",
 	}
 }
 

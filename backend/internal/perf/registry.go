@@ -51,6 +51,9 @@ func isLocalTarget(rawURL string) error {
 	if u.Scheme != "http" && u.Scheme != "https" {
 		return fmt.Errorf("target scheme %q is not http(s)", u.Scheme)
 	}
+	if u.User != nil {
+		return fmt.Errorf("target must not contain userinfo")
+	}
 	host := u.Hostname()
 	if host == "localhost" {
 		return nil

@@ -47,7 +47,11 @@ func RunHTTPWorkload(ctx context.Context, w Workload, env Environment) (RunArtif
 	}()
 
 	started := time.Now().UTC()
-	samples := make([]Sample, 0, int(*w.Rate*duration.Seconds())+8)
+	capHint := int(*w.Rate * duration.Seconds())
+	if capHint < 0 || capHint > 1_000_000 {
+		capHint = 1_000_000
+	}
+	samples := make([]Sample, 0, capHint+8)
 	for res := range attacker.Attack(targeter, rate, duration, w.ID) {
 		samples = append(samples, Sample{
 			Metrics: map[string]float64{"latency_ns": float64(res.Latency)},

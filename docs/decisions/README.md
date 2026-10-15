@@ -7,6 +7,7 @@ rather than silently rewriting its history.
 
 - [0001: monorepo and rendering boundary](0001-monorepo-and-rendering-boundary.md)
 - [0002: ESLint preset selection](0002-eslint-preset-selection.md)
+- [0003: performance history records and measurement](0003-performance-history-records-and-measurement.md)
 
 ## Engineering resources
 

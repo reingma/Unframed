@@ -14,6 +14,10 @@ backend/coverage.out
 # Local review workspaces
 .review/
 
+# Performance artifacts (perf/history/ records are committed)
+perf/runs/
+perf/reports/
+
 # Local environment configuration (examples are safe to commit)
 .env
 .env.*

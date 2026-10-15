@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://unframed.local/perf/schema/run-artifact.schema.json",
+  "title": "Raw run artifact",
+  "description": "Ephemeral per-workload output of one measurement run. Gitignored, regenerable at a git state.",
+  "type": "object",
+  "required": ["version", "workload_id", "kind", "started_at", "finished_at", "environment", "samples"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {"const": 1},
+    "workload_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+    "kind": {"enum": ["http", "browser"]},
+    "started_at": {"type": "string", "format": "date-time"},
+    "finished_at": {"type": "string", "format": "date-time"},
+    "environment": {"$ref": "#/$defs/environment"},
+    "samples": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["metrics"],
+        "additionalProperties": false,
+        "properties": {
+          "metrics": {
+            "type": "object",
+            "additionalProperties": {"type": "number"},
+            "minProperties": 1
+          },
+          "status": {"type": "integer"},
+          "error": {"type": "string"}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "environment": {
+      "type": "object",
+      "required": ["machine", "os", "arch", "cpu", "toolchain"],
+      "additionalProperties": false,
+      "properties": {
+        "machine": {"type": "string", "minLength": 1, "description": "Opaque label, never a hostname."},
+        "os": {"type": "string", "minLength": 1},
+        "arch": {"type": "string", "minLength": 1},
+        "cpu": {"type": "string", "minLength": 1},
+        "toolchain": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

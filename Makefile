@@ -1,4 +1,4 @@
-.PHONY: setup dev-backend dev-frontend fmt check check-backend check-frontend check-skills test test-backend test-frontend test-skills build build-backend build-frontend test-e2e
+.PHONY: setup dev-backend dev-frontend fmt check check-backend check-frontend check-skills check-perf test test-backend test-frontend test-skills build build-backend build-frontend test-e2e perf-build perf-run perf-record perf-compare perf-report
 
 GO_SKILL_FILES := $(wildcard .agents/skills/go-engineering/assets/*.go)
 
@@ -17,7 +17,7 @@ fmt:
 	cd frontend && npm run fmt
 	gofmt -w $(GO_SKILL_FILES)
 
-check: check-backend check-frontend check-skills
+check: check-backend check-frontend check-skills check-perf
 
 check-backend:
 	cd backend && test -z "$$(gofmt -l cmd internal)"
@@ -31,6 +31,9 @@ check-frontend:
 check-skills:
 	test -z "$$(gofmt -l $(GO_SKILL_FILES))"
 	GOEXPERIMENT=jsonv2 go vet $(GO_SKILL_FILES)
+
+check-perf: perf-build
+	backend/bin/perf validate
 
 test: test-backend test-frontend test-skills
 
@@ -53,3 +56,18 @@ build-frontend:
 
 test-e2e: build
 	cd frontend && npm run test:e2e
+
+perf-build:
+	cd backend && GOEXPERIMENT=jsonv2 go build -o bin/perf ./cmd/perf
+
+perf-run: perf-build
+	backend/bin/perf run
+
+perf-record: perf-build
+	backend/bin/perf compress --tag $(TAG)
+
+perf-compare: perf-build
+	backend/bin/perf compare
+
+perf-report: perf-build
+	backend/bin/perf report --out perf/reports/comparison.html

@@ -18,6 +18,14 @@ and future rendering boundary.
   `http.HandlerFunc` signatures.
 - [backend/internal/health](../../backend/internal/health/handler.go) implements
   the liveness endpoint.
+- [backend/internal/perf](../../backend/internal/perf) and
+  [backend/cmd/perf](../../backend/cmd/perf) own the performance measurement
+  machinery: registry parsing, the vegeta-based runner, compression of raw
+  artifacts into committed history records, and comparison/report analysis.
+- [perf](../../perf/README.md) owns the workload registry, the versioned JSON
+  schemas, committed history records under `perf/history/`, and gitignored raw
+  runs and reports. [ADR 0003](../decisions/0003-performance-history-records-and-measurement.md)
+  records the design.
 - [frontend/src/app](../../frontend/src/app/page.tsx) owns Next.js App Router pages,
   layout and presentation, using React and strict TypeScript.
 - [frontend/src/lib](../../frontend/src/lib/backend.ts) owns server-side
@@ -94,8 +102,11 @@ The [Go review skill](../../.agents/skills/go-engineering-review/SKILL.md) appli
 that method to requested reviews, with optional synthetic review cases.
 The [performance review skill](../../.agents/skills/performance-review/SKILL.md)
 analyzes supplied performance artifacts against the diff for requested reviews
-and runs nothing. There is no CI performance job, performance history, frontend
-measurement or performance gate.
+and runs nothing. Committed performance history lives under
+[perf/history/](../../perf/README.md): one compressed record per merge to
+`main`, produced by the local vegeta-based harness on the designated machine
+and validated for shape by `make check`. There is no CI performance job,
+frontend measurement or performance gate; raw run artifacts are local-only.
 The [security review skill](../../.agents/skills/security-review/SKILL.md) reviews
 changed code against specific security practices in its exposure and execution
 context for requested reviews, using only CI/CD artifacts. CI produces no

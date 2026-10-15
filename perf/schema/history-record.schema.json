@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://unframed.local/perf/schema/history-record.schema.json",
+  "title": "Compressed history record",
+  "description": "Committed per-merge summary under perf/history/. File name is NNNN-<sha8>.json matching sequence and revision.",
+  "type": "object",
+  "required": ["version", "sequence", "revision", "tag", "recorded_at", "environment", "workloads"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {"const": 1},
+    "sequence": {"type": "integer", "exclusiveMinimum": 0},
+    "revision": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "tag": {"type": "string", "minLength": 1, "description": "Changelog or issue tag, e.g. ENG-30."},
+    "recorded_at": {"type": "string", "format": "date-time"},
+    "environment": {"$ref": "#/$defs/environment"},
+    "workloads": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "kind", "samples", "errors", "metrics"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+          "kind": {"enum": ["http", "browser"]},
+          "samples": {"type": "integer", "exclusiveMinimum": 0},
+          "errors": {"type": "integer", "minimum": 0},
+          "metrics": {
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": {"$ref": "#/$defs/metricStats"}
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "environment": {
+      "type": "object",
+      "required": ["machine", "os", "arch", "cpu", "toolchain"],
+      "additionalProperties": false,
+      "properties": {
+        "machine": {"type": "string", "minLength": 1, "description": "Opaque label, never a hostname."},
+        "os": {"type": "string", "minLength": 1},
+        "arch": {"type": "string", "minLength": 1},
+        "cpu": {"type": "string", "minLength": 1},
+        "toolchain": {"type": "string", "minLength": 1}
+      }
+    },
+    "metricStats": {
+      "type": "object",
+      "required": ["values", "mean", "variance", "min", "max", "quantiles", "histogram"],
+      "additionalProperties": false,
+      "properties": {
+        "values": {"type": "integer", "exclusiveMinimum": 0},
+        "mean": {"type": "number"},
+        "variance": {"type": "number", "minimum": 0, "description": "Sample variance (n-1)."},
+        "min": {"type": "number"},
+        "max": {"type": "number"},
+        "quantiles": {
+          "type": "object",
+          "required": ["p50", "p90", "p95", "p99"],
+          "additionalProperties": false,
+          "properties": {
+            "p50": {"type": "number"},
+            "p90": {"type": "number"},
+            "p95": {"type": "number"},
+            "p99": {"type": "number"}
+          }
+        },
+        "histogram": {
+          "type": "object",
+          "required": ["min", "bucket_width", "counts"],
+          "additionalProperties": false,
+          "properties": {
+            "min": {"type": "number"},
+            "bucket_width": {"type": "number", "exclusiveMinimum": 0},
+            "counts": {"type": "array", "minItems": 1, "items": {"type": "integer", "minimum": 0}}
+          }
+        }
+      }
+    }
+  }
+}

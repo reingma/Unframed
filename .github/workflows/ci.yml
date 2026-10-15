@@ -27,7 +27,7 @@ jobs:
         with:
           go-version-file: backend/go.mod
           cache-dependency-path: backend/go.sum
-      - run: make check-backend test-backend build-backend check-skills test-skills
+      - run: make check-backend test-backend build-backend check-skills test-skills check-perf
 
   frontend:
     name: Frontend checks and build

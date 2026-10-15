@@ -101,3 +101,12 @@ runtime point came from reading the fixture text.
   run is not fully isolated from host context.
 - One scripted run on synthetic text is behavioral evidence, not proof for all
   agents. The exercise was not rerun after the wording fix, and no real PR was reviewed.
+
+## ENG-22 update
+
+ENG-22 made reviews inspect-only: the procedure now claims runtime behavior only
+from inspected evidence and requests missing evidence instead of running checks,
+and the summary lists the evidence inspected. Measured with the same command:
+`SKILL.md` went from 745 / 743 to 762 / 760 tokens (+17 / +17), required skill
+context from 2,283 / 2,279 to 2,300 / 2,296, and `references/examples.md` from
+794 / 798 to 796 / 800. The ENG-20 review exercise was not rerun.

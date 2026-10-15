@@ -33,13 +33,13 @@ by CI or the change's author; if needed evidence is missing, request it.
 2. Check each artifact is comparable: same workload, machine, toolchain and
    configuration for baseline and current, with revisions, commands, units,
    repetitions and variance recorded. A failed or missing run gives no comparison.
-3. Read the raw output, not only summaries. Treat non-significant or reversing
-   results as noise. Where recorded history exists for an affected area, compare
+3. Read the raw output, not only summaries. Report non-significant or reversing
+   results as uncertainty, not as a change. Where recorded history exists for an affected area, compare
    the current result with its trend, and check that shifts line up with the
    changes the changelog records. History from another machine or configuration
    is context, not a before/after measurement.
-4. Mesh the measurements with the code. For each measured change, find the diff
-   that explains it. For each changed path, look for costs such as extra work per
+4. Mesh the measurements with the code, reading the changed files. For each
+   measured change, find the diff that explains it. For each changed path, look for costs such as extra work per
    item, allocations, I/O or queries in loops, contention, or added frontend
    bundle or image weight, and check whether a measurement covers them. Report
    measured facts separately from attribution hypotheses; a profile artifact can
@@ -58,8 +58,8 @@ by CI or the change's author; if needed evidence is missing, request it.
 - **Accepted cost:** a measured cost the intended change explains, proportionate
   to its value and scope. Not blocking; record it. "New feature" does not excuse
   a cost unrelated to that feature, and a feature need not make the system slower.
-- **Missing performance test:** a path from step 5. Blocking when the path is
-  consequential or the change claims a performance effect.
+- **Missing performance test:** a path from step 5. Blocking when the path serves
+  requests or page renders, or the change claims a performance effect.
 - **Uncertainty:** inconclusive or noisy results, incomparable artifacts, a
   missing baseline or history, or a suspected cost the code suggests but no
   measurement shows. State what would resolve it.
@@ -90,4 +90,5 @@ telemetry or provision cloud resources.
 Follow [AGENTS.md](../../../AGENTS.md) for host policy. No CI performance job,
 performance history or frontend measurement exists yet; until the baseline work
 defines them, use artifacts attached to the PR or request and report what is
-missing.
+missing. Report a missing frontend measurement as non-blocking until frontend
+measurement exists.

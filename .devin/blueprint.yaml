@@ -10,10 +10,10 @@ initialize: |
   node_root="$HOME/.local/toolchains/node-$node_version"
   mkdir -p "$HOME/.local/bin" "$go_root" "$node_root"
   curl -fsSL "https://go.dev/dl/go$go_version.linux-amd64.tar.gz" -o "$HOME/.local/toolchains/go.tar.gz"
-  printf '%s  %s\n' '42d158b4d8f7b61ac0a830567c940a86098fb7aac52e467a5ebec03ef5cc2f8d' "$HOME/.local/toolchains/go.tar.gz" | sha256sum -c -
+  printf '%s  %s\n' 'ecbadb99091a3f46e31f5f934b068b1864eafa7995211b39eaddf76996045fe5' "$HOME/.local/toolchains/go.tar.gz" | sha256sum -c -
   tar -xzf "$HOME/.local/toolchains/go.tar.gz" -C "$go_root" --strip-components=1
   curl -fsSL "https://nodejs.org/dist/v$node_version/node-v$node_version-linux-x64.tar.xz" -o "$HOME/.local/toolchains/node.tar.xz"
-  printf '%s  %s\n' 'fd8e59d5a511510f6a298afb548f18c7d2b1be404d8b4a27d94fbe49f56cb2d6' "$HOME/.local/toolchains/node.tar.xz" | sha256sum -c -
+  printf '%s  %s\n' '3883bfc73f9a680ca4eab04b196068aaaab1373ffa77d8fc1a4408222495b651' "$HOME/.local/toolchains/node.tar.xz" | sha256sum -c -
   tar -xJf "$HOME/.local/toolchains/node.tar.xz" -C "$node_root" --strip-components=1
   ln -sf "$go_root/bin/go" "$HOME/.local/bin/go"
   ln -sf "$go_root/bin/gofmt" "$HOME/.local/bin/gofmt"

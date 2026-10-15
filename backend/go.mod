@@ -1,6 +1,6 @@
 module github.com/reingma/Unframed/backend
 
-go 1.26.9
+go 1.27.2
 
 require (
 	github.com/julienschmidt/httprouter v1.3.0

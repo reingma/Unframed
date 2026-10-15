@@ -22,6 +22,7 @@ docs/decisions/          architectural decisions and rationale
 .github/workflows/       verification, not deployment
 AGENTS.md                instructions for all coding agents
 .devin/blueprint.yaml     reviewed development environment definition
+.agents/skills/          portable, repository-local engineering methods/examples
 ```
 
 ## Fresh checkout
@@ -87,6 +88,7 @@ Run from the repository root:
 | `make test`     | Run Go race-enabled tests and frontend Vitest tests.                         |
 | `make build`    | Build both applications independently; no live backend needed.               |
 | `make test-e2e` | Build production applications and run managed Playwright integration checks. |
+| `make check-skills`, `make test-skills` | Check the isolated Go skill examples; included in `check` and `test`. |
 
 Before the first integration run, install the Chromium browser:
 
@@ -139,6 +141,7 @@ verification, run `backend/bin/server` and `npm run start` inside `frontend/` af
 - [Decisions and engineering-resource links](docs/decisions/README.md)
 - [Instructions for all coding agents](AGENTS.md)
 - [Workflow and manual blueprint activation](docs/workflow.md)
+- [Go engineering implementation skill](.agents/skills/go-engineering/SKILL.md)
 - [Terraform scope](infra/terraform/README.md)
 
 Linear owns planned requirements, approval, and acceptance criteria. GitHub holds

@@ -8,6 +8,9 @@
 - Implement only the authorized scope. Escalate material requirements,
   architecture/dependency, security-boundary, infrastructure/cost, destructive,
   or production-release changes. Routine implementation choices may be autonomous.
+- For authorized Go implementation work, load the
+  [Go engineering skill](.agents/skills/go-engineering/SKILL.md) and its shared
+  principles. Skill activation does not grant execution authority.
 - Gabriel reviews and decides whether to merge. Never merge or enable auto-merge.
 - Before implementation, read the current Linear issue and acceptance criteria,
   [README](README.md), [living architecture](docs/specs/architecture.md), relevant

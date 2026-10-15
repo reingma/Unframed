@@ -17,6 +17,43 @@ environment operations, not a second implementation specification.
   Feature work needs an entry; keep it current through review rather than logging
   every commit. Release versions and dates require separate authorization.
 
+## Repository skills
+
+The [Go engineering skill](../.agents/skills/go-engineering/SKILL.md) uses the open
+[Agent Skills format](https://agentskills.io/specification) under `.agents/skills/`.
+Apply it to explicitly authorized Go implementation issues. Root agent
+instructions link to it so clients can load the instructions even without skill
+auto-discovery. Reusable methods live with the skill; Unframed-specific authority,
+architecture and native commands remain in the existing repository entry points.
+
+[Devin CLI documents](https://docs.devin.ai/cli/extensibility/skills#where-skills-live)
+this project discovery location and `/go-engineering` invocation. In a session
+using a checkout containing the skill, confirm the name and description are
+discovered, invoke it, and confirm the shared principles are loaded before work.
+Other clients must confirm their own discovery mechanism; do not assume support.
+When repository search does not discover it, use explicit skill-directory
+activation if supported, or read the linked instructions and references and
+report that fallback. File presence alone is not proof of runtime discovery.
+
+The skill has only portable name/description metadata: no tool auto-approvals,
+platform permissions, model override, subagent profile, or event trigger. Loading
+it cannot replace authorization or enforce a permission boundary. Global/account
+installation and reviewer wiring require their separately authorized work.
+
+The implementation skill owns
+[shared Go principles](../.agents/skills/go-engineering/references/principles.md).
+The future review skill should reference this source, not copy it. Approved
+durable feedback refinements go through reviewed changes to that source.
+
+[Worked examples](../.agents/skills/go-engineering/references/examples.md) include
+an isolated parser/lookup/context exercise, contract tests, fuzzing and operation
+benchmarks. They introduce no blog feature or application dependency/module.
+`make check-skills` and `make test-skills` verify the example Go files, also through
+root `check`/`test` and the backend CI job. Fuzz campaigns and measurements are
+explicit native commands, not performance gates. Record actual activation,
+exercise commands/results, trade-offs and client limitations in PR verification,
+not as issue-specific repository reports or fabricated production evidence.
+
 ## Environment definition
 
 [.devin/blueprint.yaml](../.devin/blueprint.yaml) is the reviewed Git-backed

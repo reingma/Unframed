@@ -20,6 +20,7 @@ infra/terraform/         scope and future setup guidance
 docs/specs/              living architecture specification
 docs/decisions/          architectural decision records
 .github/workflows/       CI
+.agents/skills/          portable engineering skills and isolated examples
 ```
 
 There is one Go module in the backend and one npm project in the frontend, without
@@ -140,6 +141,15 @@ installation, and production-style local execution.
 execution authorization, scope escalation, changelog maintenance, verification,
 and human-only merge boundaries. The general PR template requests issue linkage,
 verification evidence, changelog accountability, and reviewer context.
+
+The repository-local `go-engineering` skill uses the open Agent Skills format in
+`.agents/skills/`. It provides the Go implementation procedure, one shared
+implementation/review principles source, and standalone example Go files tested
+by named-file commands, without another application module or runtime dependency.
+Root instructions link to the skill; workflow guidance documents discovery and
+explicit activation fallbacks. Static/race example checks run through Make and CI;
+fuzz campaigns and operation benchmarks are manual, not performance gates. No
+reviewer profiles, global installation, or event-driven execution are configured.
 
 `.devin/blueprint.yaml` defines a Linux x86-64 environment reviewed through PRs.
 It reads tool versions from repository metadata, checksum-verifies archives,

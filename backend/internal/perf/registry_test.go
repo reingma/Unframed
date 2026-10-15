@@ -47,6 +47,8 @@ func TestParseRegistryRejects(t *testing.T) {
 			{"id":"a","kind":"browser","target":"https://example.com/","repetitions":3}]}`,
 		"browser protocol-relative target": `{"version":1,"workloads":[
 			{"id":"a","kind":"browser","target":"//example.com/","repetitions":3}]}`,
+		"browser backslash target": `{"version":1,"workloads":[
+			{"id":"a","kind":"browser","target":"/\\example.com","repetitions":3}]}`,
 		"bad id": `{"version":1,"workloads":[
 			{"id":"Has Space","kind":"http","target":"http://127.0.0.1:8080/x","rate":1,"duration":"1s"}]}`,
 		"unknown kind": `{"version":1,"workloads":[

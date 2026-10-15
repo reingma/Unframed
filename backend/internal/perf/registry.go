@@ -88,7 +88,8 @@ func (w *Workload) validate() error {
 			if err := isLocalTarget(w.Target); err != nil {
 				return fmt.Errorf("browser workload %q: %w", w.ID, err)
 			}
-		} else if strings.HasPrefix(w.Target, "//") || w.Target[0] != '/' {
+		} else if !strings.HasPrefix(w.Target, "/") || strings.HasPrefix(w.Target, "//") ||
+			strings.ContainsAny(w.Target, "\\") {
 			return fmt.Errorf("browser workload %q target %q is not a route path or local URL", w.ID, w.Target)
 		}
 	default:

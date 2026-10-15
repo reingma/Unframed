@@ -129,6 +129,7 @@ This is not a production deployment configuration.
 - [Decisions and Engineering resources](docs/decisions/README.md)
 - [Skill discovery and manual environment activation](docs/workflow.md)
 - [Go implementation skill](.agents/skills/go-engineering/SKILL.md)
+- [Go review skill](.agents/skills/go-engineering-review/SKILL.md)
 - [Interactive planning skill](.agents/skills/implementation-planning/SKILL.md)
 - [Infrastructure guide](infra/terraform/README.md)
 

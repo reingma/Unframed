@@ -1,8 +1,9 @@
 # Shared Go engineering principles
 
 This is the single method reference for Go implementation and its review mirror.
-The implementation skill owns this material; the review skill references it
-rather than maintaining a competing copy. Host-repository rules and approved
+The implementation skill owns this material; the
+[review skill](../../go-engineering-review/SKILL.md) references it rather than
+maintaining a competing copy. Host-repository rules and approved
 requirements govern authority and product contracts. These principles guide
 judgment; patterns alone do not establish correctness.
 

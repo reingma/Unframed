@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Go engineering review skill that applies the shared Go principles and separates
+  defects, uncertainties, trade-offs and preferences, with synthetic review cases.
 - Interactive implementation-planning skill with required discussion coverage,
   linked follow-up issue formats and scoped examples, without implementation authority.
 - Portable Go engineering implementation skill with shared review principles,

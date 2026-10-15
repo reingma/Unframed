@@ -90,11 +90,13 @@ governs test selection.
 
 The [Go skill](../../.agents/skills/go-engineering/SKILL.md) provides one shared
 implementation/review method and standalone examples compiled by file list.
+The [Go review skill](../../.agents/skills/go-engineering-review/SKILL.md) applies
+that method to requested reviews, with optional synthetic review cases.
 The [planning skill](../../.agents/skills/implementation-planning/SKILL.md)
 provides its interactive method and optional issue formats and examples.
 [Workflow guidance](../workflow.md#repository-skills) owns discovery, loading and
-report conventions. No reviewer profiles, global installation or automatic
-issue execution are configured.
+report conventions. No reviewer profiles, automatic review wiring, global
+installation or automatic issue execution are configured.
 
 The [Linux development blueprint](../../.devin/blueprint.yaml) owns environment
 initialization and maintenance. [Workflow guidance](../workflow.md#manual-activation-after-merge)

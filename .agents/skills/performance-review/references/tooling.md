@@ -27,7 +27,9 @@ go run $S compare -o .perf/NAME .perf/NAME/base.txt .perf/NAME/current.txt
 Each run file is benchstat-readable `go test` output preceded by `revision`,
 `revision-ref`, `command`, `go-version`, `goexperiment`, `date` and `exit-code`
 lines. A working-tree revision ends in `-dirty` when there are uncommitted changes.
-`compare` writes `benchstat.txt` and `summary.txt` and prints both.
+`compare` writes `benchstat.txt` and `summary.txt` and prints both. Loose test
+files outside a module, such as the Go skill's assets, are passed by name:
+`-dir .agents/skills/go-engineering/assets lookup.go lookup_test.go`.
 
 ## Behavior
 
@@ -39,6 +41,9 @@ lines. A working-tree revision ends in `-dirty` when there are uncommitted chang
   acceptable. The summary lists significant changes, non-significant results,
   new workloads with no baseline, and removed workloads. A toolchain difference
   is reported as part of the change.
+- Run-to-run drift on a shared or virtual machine can exceed small effects and
+  even reverse them. Before attributing a small change, run both passes again in
+  the opposite order and compare; report changes that do not hold as noise.
 - Each revision runs its own benchmarks. A benchmark whose code changed measures
   a different workload; check the diff before comparing it.
 

@@ -11,7 +11,8 @@ Follow the host's authority and delivery rules; skill activation grants no permi
 A review does not authorize optimizing code, commits, approvals or merges.
 Identify the review scope, baseline and current revisions, affected areas, workloads,
 existing test commands and results, environment, any agreed budgets, recorded
-performance history, and the owner's applicable review responses. Report missing
+performance history, and the owner's applicable review responses in the
+request, PR threads or issue comments. Report missing
 context as a gap instead of assuming it.
 
 Read the shared
@@ -33,7 +34,9 @@ routinely load examples, scripts or token reports.
 3. Run the baseline and current revisions on the same machine, toolchain and
    configuration, with repetitions. Record revisions, commands, workload and
    data, environment, units and variance. Report no comparison when the baseline
-   is missing, a run failed, or the configurations differ.
+   is missing, a run failed, or the configurations differ. Repeat the comparison
+   when a change is small or the machine is shared, and attribute only changes
+   that persist across repeats.
 4. Inspect the raw output and comparisons, not only summaries. Where recorded
    history exists for an affected area, compare the current result with its
    trend too, and check that shifts line up with the changes the changelog

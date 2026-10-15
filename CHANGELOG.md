@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Read-only Go, performance and security reviewer subagent profiles and a
+  manual handoff procedure for planner, implementer and reviewer roles.
 - Security review skill that reviews backend, frontend, dependency and CI changes
   against specific security practices in their exposure and execution context,
   using only CI/CD artifacts and proposing targeted tests only for specific suspicions.

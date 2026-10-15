@@ -34,10 +34,11 @@ use explicit directory activation where supported, or read its linked entry poin
 and required references and report that fallback. File presence alone does not
 prove runtime discovery.
 
-Metadata contains only a portable name and description. There are no tool
-auto-approvals, platform permissions, model overrides, subagent profiles or event
-triggers. [Host authority](../AGENTS.md#authority-and-required-context) still governs use.
-Global installation and reviewer wiring are separately scoped work.
+Skill metadata contains only a portable name and description. Skills have no tool
+auto-approvals, platform permissions, model overrides or event triggers.
+[Host authority](../AGENTS.md#authority-and-required-context) still governs use.
+The read-only reviewer subagent profiles and how roles are started are covered in
+[review handoffs](review-handoffs.md). Global installation is separately scoped work.
 
 The Go implementation skill owns the shared method; the review skill references
 it rather than maintaining a competing copy. Its worked examples introduce
@@ -54,7 +55,9 @@ wins, then run a fresh final analysis and maintain one report at
 baseline and final counts, the measured scope, tokenizer and version, reproduction
 commands, loading assumptions and observations, savings, retained behavior,
 verification and gaps. These are factual verification records, not specifications.
-There is no universal token budget or new CI gate.
+There is no universal token budget or new CI gate. Analysis never runs
+automatically: run it only when an issue specifies it or Gabriel asks. Changing a
+skill for other work does not refresh its report.
 
 Measure discovery metadata, activated instructions, required references, optional
 resources and host context separately. Inventory report size independently.

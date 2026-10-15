@@ -26,6 +26,7 @@
   [performance review skill](.agents/skills/performance-review/SKILL.md).
 - For an explicitly requested security review, follow the
   [security review skill](.agents/skills/security-review/SKILL.md).
+- Start roles and hand off reviews as [review handoffs](docs/review-handoffs.md) describes.
 - For implementation planning, follow the
   [planning skill](.agents/skills/implementation-planning/SKILL.md) and complete
   its interactive discussion before settling the design.

@@ -11,6 +11,9 @@ backend/bin/
 backend/coverage.out
 *.test
 
+# Local review workspaces
+.review/
+
 # Local environment configuration (examples are safe to commit)
 .env
 .env.*

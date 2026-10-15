@@ -22,6 +22,8 @@
   [Go skill](.agents/skills/go-engineering/SKILL.md), including its required principles.
 - For an explicitly requested Go review, follow the
   [Go review skill](.agents/skills/go-engineering-review/SKILL.md).
+- For an explicitly requested performance review, follow the
+  [performance review skill](.agents/skills/performance-review/SKILL.md).
 - For implementation planning, follow the
   [planning skill](.agents/skills/implementation-planning/SKILL.md) and complete
   its interactive discussion before settling the design.

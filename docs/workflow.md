@@ -14,6 +14,9 @@ Repository-local skills use the open
 - [go-engineering-review](../.agents/skills/go-engineering-review/SKILL.md) owns
   the Go review procedure and finding format, using those same principles. Its
   worked review cases are optional calibration.
+- [performance-review](../.agents/skills/performance-review/SKILL.md) owns the
+  performance review procedure and finding format, analyzing supplied artifacts
+  with the shared measurement method. It never runs measurements.
 - [implementation-planning](../.agents/skills/implementation-planning/SKILL.md)
   owns interactive planning and its required method. Its formats and worked
   examples are optional illustrations, not product decisions or executed tests.
@@ -21,7 +24,7 @@ Repository-local skills use the open
 [Devin CLI documents](https://docs.devin.ai/cli/extensibility/skills#where-skills-live)
 this location and slash-command activation. In a checkout containing the skill,
 confirm its name and description are discovered, invoke `/go-engineering`,
-`/go-engineering-review` or `/implementation-planning`, and confirm its required reference is read.
+`/go-engineering-review`, `/performance-review` or `/implementation-planning`, and confirm its required reference is read.
 
 Other clients must verify their discovery mechanism. If search misses a skill,
 use explicit directory activation where supported, or read its linked entry point

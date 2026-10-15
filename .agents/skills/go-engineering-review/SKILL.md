@@ -32,7 +32,8 @@ a review exercise. Do not routinely load examples or token reports.
    issue or design; never recommend weakening assertions to obtain a pass.
 5. Check the performance, security or maintenance evidence behind each trade-off.
    Calling something a trade-off does not exempt it from approved requirements.
-   Claim runtime behavior only from checks you ran or evidence you inspected.
+   Claim runtime behavior only from evidence you inspected, such as CI results or
+   attached output; do not run checks yourself, and request missing evidence.
 6. Apply the owner's relevant review reasoning, classify each finding, and drop
    speculative or duplicate findings.
 
@@ -49,8 +50,8 @@ a review exercise. Do not routinely load examples or token reports.
 
 For each finding, give the location at the reviewed revision, the evidence, the
 affected invariant or risk, the class and blocking rationale, and any untested
-gap. End with a verdict, the checks actually run versus only inspected, and what
-was not reviewed.
+gap. End with a verdict, the evidence inspected, and what was not reviewed or
+lacks evidence.
 
 ## Feedback refinements
 

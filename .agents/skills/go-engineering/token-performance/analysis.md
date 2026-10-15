@@ -1,6 +1,59 @@
 # Go engineering token-performance analysis
 
-## Scope and method
+## Current ENG-27 remeasurement
+
+ENG-27 consolidated repository documentation and replaced repeated host policy in
+this skill with links. It was measured on 2026-10-15 (UTC) with the method below:
+Python 3.12.13, `tiktoken 0.14.0`, `cl100k_base` and `o200k_base`. The baseline
+is `27fcfc8be77e5e0fa84faba3f649ab30525ffcdd`, the main revision containing the
+ENG-26 and ENG-21 changes. The final corpus is the ENG-27 working tree. To
+reproduce, run the script below with `base` set to that revision.
+
+The ENG-26 sections after this one are historical. Their "final" values describe
+the ENG-26 tree, not the current files.
+
+| Loading layer / file                          |   cl100k_base |    o200k_base |
+| --------------------------------------------- | ------------: | ------------: |
+| Discovery: name/description payload           |       50 → 50 |       50 → 50 |
+| Activated: `SKILL.md`                         |     538 → 458 |     533 → 457 |
+| Required: `references/principles.md`          | 1,494 → 1,524 | 1,492 → 1,522 |
+| Optional: `references/examples.md`            | 2,063 → 1,983 | 2,062 → 1,979 |
+| Optional: both `assets/*.go` files, unchanged | 2,840 → 2,840 | 2,841 → 2,841 |
+| Host: `AGENTS.md`                             | 1,409 → 1,271 | 1,406 → 1,268 |
+| Host: `docs/workflow.md`                      | 1,578 → 1,134 | 1,582 → 1,135 |
+
+| Cumulative scenario              |                   cl100k_base |                    o200k_base |
+| -------------------------------- | ----------------------------: | ----------------------------: |
+| Required core                    |   2,032 → 1,982 (−50; −2.46%) |   2,025 → 1,979 (−46; −2.27%) |
+| Optional documentation + assets  |   4,903 → 4,823 (−80; −1.63%) |   4,903 → 4,820 (−83; −1.69%) |
+| Runtime bundle, excluding report |  6,935 → 6,805 (−130; −1.87%) |  6,928 → 6,799 (−129; −1.86%) |
+| Selected host context            | 2,987 → 2,405 (−582; −19.48%) | 2,988 → 2,403 (−585; −19.58%) |
+| Core + selected host context     | 5,019 → 4,387 (−632; −12.59%) | 5,013 → 4,382 (−631; −12.59%) |
+
+The host baseline is higher than the ENG-26 final value because ENG-21 added
+planning-skill guidance to the same files in between.
+
+What changed and what was kept:
+
+- The entry point now links to host policy for the JSON API, build flag and
+  the list of unauthorized actions. It keeps two portable guards, because other
+  hosts may not have the same policy: activation grants no permission, and work
+  stops when explicit authorization or scope is missing. The procedure and
+  handoff are written as full sentences again.
+- Two sentences moved from the examples into the shared principles, so the method
+  owns them: preserve discovered fuzz failures, and use the changelog and diff to
+  understand a change's intended cost.
+- The examples link to the shared fuzz, measurement and observability methods
+  instead of restating them. The exercise contracts, commands and limitations
+  remain, and the Go assets are byte-for-byte unchanged.
+- The report stays off routine loading paths. Its own size is recorded in PR
+  verification to avoid a self-referential count.
+
+Lower counts do not prove equal behavior. The preservation evidence is the ENG-27
+removal ledger, unchanged assets and method content, explicit activation and the
+repository checks recorded in PR verification.
+
+## ENG-26 scope and method (historical)
 
 Measured on 2026-10-15 (UTC), after optimization. Baseline is independently reread
 from `9d5b5b5cc90e1ab26481e5a67bf50d4b0ced50e1`; final is this PR's working tree.

@@ -4,10 +4,9 @@ These are synthetic engineering examples, not Unframed content requirements or
 production implementations. Run native commands from the repository root with
 its pinned Go toolchain. The two Go files in `assets/` form a standalone example
 package compiled by file list, not a new application module or dependency.
-They follow Unframed's preferred `encoding/json/v2` API, including the JSON log
-reader using `jsontext.Decoder` with `json.UnmarshalDecode`. Like the backend,
-they require `GOEXPERIMENT=jsonv2` with the pinned Go toolchain; this preference
-and its experimental compatibility trade-off are repository-specific.
+For the JSON API and build requirements, follow
+[host policy](../../../../AGENTS.md#repository-preferences-and-boundaries).
+The log reader uses `jsontext.Decoder` with `json.UnmarshalDecode`.
 
 ## Types: protect a useful invariant, not every scalar
 
@@ -122,8 +121,9 @@ GOEXPERIMENT=jsonv2 go test -run '^$' -fuzz FuzzParseKey -fuzztime 10s -parallel
 
 Named-file commands work outside the application module. `make check-skills` and
 `make test-skills` run static/race checks, including fuzz seeds, not a fuzz campaign
-or a performance gate. Save discovered fuzz failures appropriately; do not dismiss
-them merely because the seed suite passes.
+or a performance gate. Follow the shared
+[fuzz verification method](principles.md#flexible-invariant-focused-verification)
+when interpreting campaign and seed results.
 
 ## Early, scoped performance evidence
 
@@ -135,8 +135,8 @@ logging, remote I/O and end-to-end request time. Compare misses, access
 distributions, construction and memory separately if they matter to an actual
 decision. Both alternatives use the standard library and introduce no dependency.
 
-Before changing a meaningful workload, preserve raw results and identifying
-metadata outside source control unless the repository specifies otherwise:
+Use the shared [measurement method](principles.md#performance-conscious-design-and-early-measurements).
+For this exercise, capture revision and toolchain information alongside raw results:
 
 ```sh
 git rev-parse HEAD
@@ -147,13 +147,9 @@ GOEXPERIMENT=jsonv2 go env GOOS GOARCH GOEXPERIMENT
 GOEXPERIMENT=jsonv2 go test -run '^$' -bench BenchmarkLookup -benchmem -count 5 .agents/skills/go-engineering/assets/*.go
 ```
 
-Run comparable base/current revisions in equivalent environments without
-competing heavy work. Use the changelog plus diff to understand intended costs.
-Inspect distributions/noise and use existing comparison/profiling tools where
-needed; no threshold or performance CI gate is supplied here. Comparing these
-two alternatives is not a historical regression measurement, and absence of a
-baseline prevents a before/after claim. A local fixture result does not establish
-Unframed performance or justify a library replacement.
+Comparing these alternatives is not a historical regression measurement. This
+exercise supplies no threshold or performance gate, and a local fixture result
+does not establish Unframed performance or justify a library replacement.
 
 ## Request-path evidence without a tracing service
 
@@ -164,13 +160,11 @@ output for start/failure events without freezing message text or timestamps. It
 also checks a provider's sensitive error contents do not leak to logs.
 The success-path check observes completion and excludes record payloads from logs.
 
-The identifier is a safe locally supplied fixture value. Real HTTP ingress must
-establish its trust/length policy rather than blindly accepting a header. This is
-process-local propagation, not distributed tracing; a multi-process path needs
-the host project's agreed protocol. Missing identifiers, sampling,
-redaction policy and observability cost deserve checks when they are
-part of the actual issue. Do not introduce a collector, log every helper, or log
-raw payloads merely to demonstrate traceability.
+The identifier is a safe locally supplied fixture value, not an untrusted HTTP
+header. This demonstrates process-local propagation, not distributed tracing.
+Apply the shared [observability method](principles.md#correlated-request-path-observability)
+to real ingress, missing identifiers, multi-process propagation, sampling,
+redaction and runtime cost. Host authority governs new infrastructure.
 
 ## Representative bounded implementation exercise
 

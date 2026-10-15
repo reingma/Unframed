@@ -1,129 +1,100 @@
 # Repository workflow and environment
 
-[AGENTS.md](../AGENTS.md) is the entry point for all coding agents. The
-[Engineering resources](decisions/README.md) in Linear remain authoritative for
-collaboration policy; this document describes repository entry points and
-environment operations, not a second implementation specification.
-
-## Entry points
-
-- Linear holds planned requirements, approval, acceptance criteria, and status.
-- [Current architecture](specs/architecture.md) describes implemented facts;
-  [ADRs](decisions/README.md) record enduring decisions.
-- [README](../README.md) and [Makefile](../Makefile) provide setup and verification.
-- The [PR template](../.github/PULL_REQUEST_TEMPLATE.md) requests actual issue
-  linkage, verification evidence, changelog accountability, and reviewer context.
-- The [changelog](../CHANGELOG.md) records notable changes under `Unreleased`.
-  Feature work needs an entry; keep it current through review rather than logging
-  every commit. Release versions and dates require separate authorization.
+Follow [AGENTS.md](../AGENTS.md) for authority, delivery and documentation policy.
+This guide owns skill discovery and environment operations.
+[README](../README.md) owns local setup and runnable verification instructions.
 
 ## Repository skills
 
-The [Go engineering skill](../.agents/skills/go-engineering/SKILL.md) uses the open
-[Agent Skills format](https://agentskills.io/specification) under `.agents/skills/`.
-Apply it to explicitly authorized Go implementation issues. Root agent
-instructions link to it so clients can load the instructions even without skill
-auto-discovery. Reusable methods live with the skill; Unframed-specific authority,
-architecture and native commands remain in the existing repository entry points.
+Repository-local skills use the open
+[Agent Skills format](https://agentskills.io/specification) in `.agents/skills/`:
+
+- [go-engineering](../.agents/skills/go-engineering/SKILL.md) owns the Go procedure
+  and its required shared principles.
+- [implementation-planning](../.agents/skills/implementation-planning/SKILL.md)
+  owns interactive planning and its required method. Its formats and worked
+  examples are optional illustrations, not product decisions or executed tests.
 
 [Devin CLI documents](https://docs.devin.ai/cli/extensibility/skills#where-skills-live)
-this project discovery location and `/go-engineering` invocation. In a session
-using a checkout containing the skill, confirm the name and description are
-discovered, invoke it, and confirm the shared principles are loaded before work.
-The [implementation-planning skill](../.agents/skills/implementation-planning/SKILL.md)
-uses the same location and explicit `/implementation-planning` activation for
-planning tasks. It requires its method reference and loads issue formats/examples
-only as needed. Root instructions require an interactive discussion round before
-design is settled; detailed coverage, records and traced follow-up proposals live
-with the skill, not in a competing policy copy. Its worked discussion is an
-illustrative fixture, not product approval, issue creation or test execution.
+this location and slash-command activation. In a checkout containing the skill,
+confirm its name and description are discovered, invoke `/go-engineering` or
+`/implementation-planning`, and confirm its required reference is read.
 
-Other clients must confirm their own discovery mechanism; do not assume support.
-When repository search does not discover it, use explicit skill-directory
-activation if supported, or read the linked instructions and references and
-report that fallback. File presence alone is not proof of runtime discovery.
+Other clients must verify their discovery mechanism. If search misses a skill,
+use explicit directory activation where supported, or read its linked entry point
+and required references and report that fallback. File presence alone does not
+prove runtime discovery.
 
-The skills have only portable name/description metadata: no tool auto-approvals,
-platform permissions, model override, subagent profile, or event trigger. Loading
-it cannot replace authorization or enforce a permission boundary. Global/account
-installation and reviewer wiring require their separately authorized work.
+Metadata contains only a portable name and description. There are no tool
+auto-approvals, platform permissions, model overrides, subagent profiles or event
+triggers. [Host authority](../AGENTS.md#authority-and-required-context) still governs use.
+Global installation and reviewer wiring are separately scoped work.
 
-The implementation skill owns
-[shared Go principles](../.agents/skills/go-engineering/references/principles.md).
-The future review skill should reference this source, not copy it. Approved
-durable feedback refinements go through reviewed changes to that source.
-
-[Worked examples](../.agents/skills/go-engineering/references/examples.md) include
-an isolated parser/lookup/context exercise, contract tests, fuzzing and operation
-benchmarks. They introduce no blog feature or application dependency/module.
-`make check-skills` and `make test-skills` verify the example Go files, also through
-root `check`/`test` and the backend CI job. Fuzz campaigns and measurements are
-explicit native commands, not performance gates. Record actual activation,
-exercise commands/results, trade-offs and client limitations in PR verification,
-not as issue-specific repository reports or fabricated production evidence.
+The Go implementation skill owns the shared method; future review skills should
+reference it rather than maintain a competing copy. Its worked examples introduce
+no application feature, dependency or module. Native static and race checks run
+through Make and CI. Exercise-specific fuzz and benchmark commands live in
+[the worked exercise](../.agents/skills/go-engineering/references/examples.md).
+They are manual evidence, not performance gates.
 
 ### Skill token-performance reports
 
-For skill implementation or optimization issues requiring token analysis, run a
-fresh final analysis after clear-win improvements and commit one maintained report
-at `.agents/skills/<skill-name>/token-performance/analysis.md`. Include comparable
-draft/baseline and final counts, tokenizer/version and reproducible commands,
-measured scope, loading assumptions/observations, savings, preserved behavior,
-verification and gaps. These are factual verification records, not copied Linear
-specifications. No universal token budget or new CI gate is implied.
+For skill implementation or optimization issues requiring analysis, apply clear
+wins, then run a fresh final analysis and maintain one report at
+`.agents/skills/<skill-name>/token-performance/analysis.md`. Record comparable
+baseline and final counts, the measured scope, tokenizer and version, reproduction
+commands, loading assumptions and observations, savings, retained behavior,
+verification and gaps. These are factual verification records, not specifications.
+There is no universal token budget or new CI gate.
 
-Separate metadata, activated instructions, required references, optional resources
-and host context; inventory report size separately. Keep reports and worked
-exercises off mandatory runtime loading paths. Read them only for relevant work
-or review; running existing example checks does not require loading their source.
+Measure discovery metadata, activated instructions, required references, optional
+resources and host context separately. Inventory report size independently.
+Keep reports and worked exercises off mandatory loading paths; read them only
+for relevant work or review. Running native example checks does not require
+reading their source into context.
 
-## Environment definition
+## Environment operations
 
-[.devin/blueprint.yaml](../.devin/blueprint.yaml) is the reviewed Git-backed
-definition for Linux x86-64. Its installation reads Go/Node versions from the
-repository metadata, verifies archive checksums, checks bundled npm against
-`packageManager`, and persists the local toolchain PATH through Devin's `ENVRC`.
-Make, curl, tar, xz, sha256sum, and awk are prerequisites of the base Linux image.
+The [blueprint](../.devin/blueprint.yaml) owns executable installation,
+maintenance, archive checksums and toolchain validation for Linux x86-64.
+Make, curl, tar, xz, sha256sum and awk must be present in the base image.
 
-When upgrading Go or Node, update repository metadata and the reviewed checksum
-together. An old checksum intentionally rejects a new archive. npm must match the
-version bundled with the selected Node release or the install fails.
+For a Go or Node upgrade, update the source metadata and reviewed archive checksum
+together. An old checksum deliberately rejects a new archive. The selected Node
+release must bundle the npm version required by `packageManager`.
 
-Initialization installs tools. Maintenance incrementally prepares Go/npm
-dependencies and Playwright Chromium, including Linux system libraries. System
-library installation needs root or passwordless elevation; a restricted image
-must have those libraries prepared by its owner. It must not skip them silently.
-Maintenance runs during snapshot builds; its commands are surfaced, not
-automatically re-executed, at session start. No running servers survive a snapshot.
+Maintenance incrementally prepares dependencies and Playwright. Installing Linux
+system libraries requires root or passwordless elevation; a restricted image
+must have its owner prepare them, not silently skip them. Maintenance runs during
+snapshot builds and is surfaced, not automatically rerun, at session start.
+Snapshots retain files, not running servers; startup happens in the session.
 
-Fresh checkout and CI verification still use `make setup` (`npm ci`). Blueprint
-maintenance uses incremental `npm install`; check for unexpected lockfile changes.
-Environment knowledge points to the agent instructions instead of copying policy.
+Fresh checkouts and CI use the [README setup procedure](../README.md#fresh-checkout).
+Blueprint maintenance uses incremental `npm install`; check for unexpected
+lockfile changes. Its knowledge section is a quick reference to common commands
+and the canonical entry points.
 
 ## Manual activation after merge
 
-The existing Unframed installation was settings-managed when this definition was
-introduced. Committing the YAML does not switch that installation or prove a
-snapshot usable. Activation and fresh-session verification remain human-controlled.
+The installation was settings-managed when the Git-backed definition was
+introduced. Committing it does not switch that source or prove a snapshot usable.
+Follow [host activation authority](../AGENTS.md#repository-preferences-and-boundaries)
+and [issue completion policy](../AGENTS.md#delivery) throughout these steps.
 
-1. Gabriel reviews and merges the repository PR. Use `Part of` for an issue whose
-   acceptance includes these post-merge steps; do not close it on the file merge.
-2. In Devin **Settings → Environment → Blueprints**, select Unframed and switch
-   its source from database/settings to Git. Confirm the imported default-branch
-   commit and blueprint contents.
-3. Sync/build through the UI and wait for a successful build. The UI Sync action
-   builds changed contents; explicitly build if necessary when unchanged. Confirm
-   the intended Linux snapshot succeeded, not merely a partial overall result.
-4. Leave automatic sync/build-on-default-branch-commit disabled. No API token or
+1. Link the PR to the issue without closing it while these steps remain.
+   After the PR is human-reviewed and merged, open Devin
+   **Settings → Environment → Blueprints**, select Unframed, and switch its source
+   from database/settings to Git. Confirm the imported default-branch commit and contents.
+2. Sync/build through the UI and wait for success. Sync builds changed contents;
+   explicitly build if necessary when unchanged. Confirm the intended Linux
+   snapshot succeeded, not merely a partial overall result.
+3. Leave automatic sync/build-on-default-branch-commit disabled. No API token or
    GitHub sync workflow is required.
-5. Start a fresh session using that snapshot. Confirm the synced commit, tool
-   versions, and discovery of the root agent instructions. Have the agent report
-   the authorization/no-merge/changelog guardrails before authorizing test work.
-6. Verify documented startup and `make check`, `make test`, `make build`, and
-   `make test-e2e` in that fresh session. Record results and any activation gaps
-   on the implementation issue before marking it Done.
+4. Start a fresh session from that snapshot. Confirm the synced commit, tool
+   versions and root agent-instruction discovery. Have the agent report the
+   linked guardrails before authorizing test work.
+5. Verify the README startup procedure and `make check`, `make test`, `make build`
+   and `make test-e2e` in that session. Record results and activation gaps on the issue.
 
-Subsequent blueprint changes use a feature-branch PR, human review/merge, and
-manual sync/build. Do not edit settings as a competing source or introduce
-automatic activation without approval. See
-[Devin's activation documentation](https://docs.devin.ai/onboard-devin/environment/git-backed-blueprints).
+Subsequent definition changes follow the same reviewed, manual procedure, not a
+competing settings source. See [Devin's activation documentation](https://docs.devin.ai/onboard-devin/environment/git-backed-blueprints).

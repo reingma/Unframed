@@ -46,4 +46,4 @@ knowledge:
   - name: startup
     contents: Run make dev-backend and make dev-frontend in separate terminals.
   - name: notes
-    contents: Read AGENTS.md and docs/workflow.md; native Go commands require GOEXPERIMENT=jsonv2.
+    contents: Read AGENTS.md for policy, README.md for setup and commands, and docs/workflow.md for environment operations.

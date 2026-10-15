@@ -70,6 +70,7 @@ panic. Seed interesting valid/invalid/boundary cases. Avoid circular oracles tha
 merely call the implementation twice; crash freedom alone is not correctness.
 Test important zero values and external-state failure paths separately.
 Not every constant response or trivial helper needs fuzzing or a new framework.
+Preserve discovered fuzz failures; passing seeds do not replace a fuzz campaign.
 
 ## Performance-conscious design and early measurements
 
@@ -103,6 +104,7 @@ evidence. Budgets and regression gates require agreed expectations, not invented
 universal thresholds. A missing baseline means no before/after claim, and a
 fixture benchmark is not production evidence. Keep credentials and sensitive
 workload data out of artifacts.
+Use the changelog and diff to understand the intended cost of a change.
 
 ## Correlated request-path observability
 

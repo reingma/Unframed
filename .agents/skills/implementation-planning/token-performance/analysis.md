@@ -1,5 +1,38 @@
 # Implementation-planning token analysis
 
+## Current ENG-27 remeasurement
+
+ENG-27 replaced repeated host policy in `SKILL.md` with links. The method, issue
+formats and worked examples were not changed. It was measured on 2026-10-15 (UTC)
+with Python 3.12.13, `tiktoken 0.14.0`, `cl100k_base` and `o200k_base`, using the
+command below with `draft` set to `27fcfc8be77e5e0fa84faba3f649ab30525ffcdd`, the
+main revision containing the delivered skill. The final corpus is the ENG-27
+working tree. Each pair is **cl100k / o200k**.
+
+| Loading layer / file                       |      Baseline |         Final |       Delta |
+| ------------------------------------------ | ------------: | ------------: | ----------: |
+| Discovery metadata                         |       63 / 63 |       63 / 63 |       0 / 0 |
+| Activated `SKILL.md`                       |     479 / 479 |     375 / 373 | −104 / −106 |
+| Required `references/method.md`, unchanged | 1,064 / 1,060 | 1,064 / 1,060 |       0 / 0 |
+| Required skill context                     | 1,543 / 1,539 | 1,439 / 1,433 | −104 / −106 |
+| Whole runtime bundle (not default loading) | 3,309 / 3,285 | 3,205 / 3,179 | −104 / −106 |
+| Host `AGENTS.md` + `docs/workflow.md`      | 2,987 / 2,988 | 2,405 / 2,403 | −582 / −585 |
+| Required skill context + those host files  | 4,530 / 4,527 | 3,844 / 3,836 | −686 / −691 |
+
+Required-context savings are 6.74% / 6.89%; the entry point alone is 21.71% /
+22.13% smaller. The entry point removed repeated authority, tracker and
+issue-creation rules. The unchanged method still requires open unknowns,
+issue creation only on request, no invented tracker IDs or results, and separate
+planning approval, kickoff, verification and human merge. The entry point keeps
+its loading order, discussion pacing and optional-resource conditions.
+
+The scripted exercise below ran against the earlier entry point and was not
+repeated for this wording change. ENG-27 verification covers metadata, links,
+explicit activation and repository checks only.
+
+The sections after this one are historical ENG-21 records. Their "final" values
+and working-tree statements describe that delivery, not the current files.
+
 Measured and inspected by the implementing agent on 2026-10-15 (UTC), after
 optimization and the scripted exercise. Content-only estimates, not Devin billing
 or proof that token reduction preserves all agents' behavior.

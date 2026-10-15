@@ -1,185 +1,103 @@
 # Current architecture
 
-This living specification describes Unframed as implemented. Update this single
-document as approved changes land, rather than adding issue-specific copies.
-Linear remains the authoritative source for planned requirements and acceptance
-criteria; decision records explain why architectural choices were made.
+This document describes Unframed as implemented. Its
+[maintenance and ownership policy](../../AGENTS.md#changelog-and-documentation)
+and [decision records](../decisions/README.md) are separate.
 
-## Repository layout
+## Structure and responsibilities
 
-One shallow monorepo, with independently runnable/buildable applications:
+The repository is a shallow monorepo with independently runnable and buildable
+Go and Next.js applications. There is one Go module and one npm project.
+[ADR 0001](../decisions/0001-monorepo-and-rendering-boundary.md) records the choices
+and future rendering boundary.
 
-```text
-backend/cmd/server/       executable entry point
-backend/internal/router/  route registration and routing tests
-backend/internal/health/  health handler and colocated tests
-frontend/src/app/         Next.js routes and layouts
-frontend/src/lib/         backend communication helper
-frontend/e2e/             browser integration tests
-infra/terraform/         scope and future setup guidance
-docs/specs/              living architecture specification
-docs/decisions/          architectural decision records
-.github/workflows/       CI
-.agents/skills/          portable engineering skills and isolated examples
-```
+- [backend/cmd/server](../../backend/cmd/server/main.go) owns server setup,
+  timeouts, graceful shutdown and lifecycle, not route definitions.
+- [backend/internal/router](../../backend/internal/router/router.go) registers
+  explicit paths and methods through httprouter. Handlers use standard
+  `http.HandlerFunc` signatures.
+- [backend/internal/health](../../backend/internal/health/handler.go) implements
+  the liveness endpoint.
+- [frontend/src/app](../../frontend/src/app/page.tsx) owns Next.js App Router pages,
+  layout and presentation, using React and strict TypeScript.
+- [frontend/src/lib](../../frontend/src/lib/backend.ts) owns server-side
+  communication and Zod validation of external responses. Internal components do
+  not need Zod wrappers; Go retains backend validation responsibility.
+- [frontend/e2e](../../frontend/e2e) contains production integration tests.
+- [infra/terraform](../../infra/terraform/README.md) contains guidance only.
+- [.agents/skills](../../.agents/skills) contains repository-local methods and
+  isolated examples, not another application module.
 
-There is one Go module in the backend and one npm project in the frontend, without
-a workspace manager, shared package, generic service/repository layers, custom
-routing framework, Docker, or task-orchestration framework. `.gitignore` excludes
-generated application output, local environment configuration, and Terraform
-state/caches/plans.
+There is no workspace manager, shared package, generic service/repository layer,
+custom routing framework, Docker or task-orchestration framework.
+[.gitignore](../../.gitignore) owns generated-output, environment and state exclusions.
 
-## Toolchain and reviewed pins
+## Tooling sources
 
-The stack is Go 1.26.x, Next.js 16.x App Router, React, strict TypeScript, Node 24
-LTS, and npm with a committed lockfile. Zod validates external TypeScript data;
-styling uses minimal CSS without a component library. Static checks use Go
-formatting/vet and frontend ESLint/Prettier/type checking.
+Exact runtime and direct dependency pins live in
+[backend/go.mod](../../backend/go.mod), [frontend/package.json](../../frontend/package.json)
+and [frontend/.nvmrc](../../frontend/.nvmrc). Resolved dependencies are recorded in
+[go.sum](../../backend/go.sum) and [package-lock.json](../../frontend/package-lock.json).
+The repository's [JSON API preference](../../AGENTS.md#repository-preferences-and-boundaries)
+also applies to isolated Go examples.
 
-The backend serializes JSON with standard-library `encoding/json/v2` using
-`json.MarshalWrite`. Go 1.26 requires the experimental `GOEXPERIMENT=jsonv2`
-build flag; backend Make targets and CI set it, and native Go commands must do
-the same. This API is not yet covered by Go's compatibility guarantee.
-The repository preference also covers Go tests and isolated skill examples;
-their Make checks set the same flag. Root agent instructions require an explained
-compatibility/contract or measured workload reason for an alternative JSON API.
-
-Reviewed on 2026-10-13 using official runtime releases, npm package release dates,
-engine/peer constraints, dependency audits, and local compatibility checks:
-
-| Runtime / dependency                   | Exact pin         |
-| -------------------------------------- | ----------------- |
-| Go                                     | 1.26.9            |
-| Node LTS / bundled npm                 | 24.21.0 / 11.19.0 |
-| httprouter                             | 1.3.0             |
-| Next.js                                | 16.3.8            |
-| React / React DOM                      | 19.3.0            |
-| Zod / server-only                      | 4.6.5 / 0.0.1     |
-| TypeScript                             | 5.9.3             |
-| ESLint / @eslint/js                    | 10.11.0 / 10.0.1  |
-| typescript-eslint / React Hooks plugin | 8.71.0 / 7.1.1    |
-| Prettier                               | 3.9.9             |
-| Vitest / jsdom                         | 4.1.11 / 27.4.0   |
-| React Testing Library / jest-dom       | 16.3.3 / 7.0.1    |
-| Playwright                             | 1.63.0            |
-| @types/node                            | 24.19.0           |
-| @types/react / @types/react-dom        | 19.3.0 / 19.3.0   |
-
-Exact direct pins live in `go.mod` and `package.json`; `go.sum` and `package-lock.json`
-record dependency resolution. Installation must use `npm ci`, not floating `latest`.
-Mature compatible releases are preferred over newly published major/minor lines.
-
-The initial ESLint configuration uses core recommended, TypeScript recommended,
-and React Hooks recommended rules. The optional Next.js preset is not selected:
-its React/import/accessibility plugins declare peers excluding ESLint 10, while
-ESLint 9 is EOL. Its fast-glob dependency also pulls unpatched braces
-([GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)).
-Use compatible supported plugins, not peer-dependency bypasses, an EOL linter, or
-audit suppression. This is an initial tooling choice, not a change to established
-repository merge gates. Re-evaluate the optional preset when its ecosystem supports
-the chosen linter and has patched dependencies.
+Styling uses minimal CSS without a component library. The
+[ESLint configuration](../../frontend/eslint.config.mjs) uses the core,
+TypeScript and React Hooks recommended rules. [ADR 0002](../decisions/0002-eslint-preset-selection.md)
+records the preset decision and its revisit conditions.
 
 ## HTTP and rendering contract
 
-- Standard `net/http` serves connections, timeouts, and graceful shutdown;
-  httprouter provides explicit method/path registration in `backend/internal/router`.
-  The executable handles server setup and lifecycle, not route definitions.
-  Handlers use standard `http.HandlerFunc` signatures.
-- Go exposes `GET /healthcheck` returning HTTP 200, `Content-Type: application/json`,
-  and `{"status":"ok"}`. This is liveness, not readiness of future dependencies.
-- The request flow is **browser → Next.js → Go**. The browser does not call Go
-  directly, and the initial slice needs no browser CORS setup.
-- Next.js fetches the endpoint server-side on each page request, without caching
-  and with a bounded two-second timeout. Reloading checks again; no polling or
-  refresh widget. The production frontend build must succeed with Go stopped.
-- `BACKEND_URL` is a configurable server-only absolute backend origin, defaulting
-  locally to `http://127.0.0.1:8080`. Go's `BACKEND_ADDR` defaults to `:8080`.
-  Changing either address must not require source edits.
-- The helper uses a small Zod schema requiring `status: "ok"` and infers its
-  TypeScript response type. Valid data produces “Backend available” and displays
-  the response; unreachable/timeout/non-success responses, malformed JSON, and
-  schema-invalid data produce a clear unavailable state rather than healthy data.
-- Zod is used at the external response boundary, not around internal functions
-  or UI components. Go retains responsibility for backend validation.
+Go exposes `GET /healthcheck` with HTTP 200, `Content-Type: application/json` and
+`{"status":"ok"}`. It checks liveness, not readiness of future dependencies.
 
-The agreed future responsibility boundary assigns content/configuration loading,
-validation, Markdown processing, and article-data preparation to Go. Next.js owns
-complete reader-facing HTML pages, layout, navigation, and metadata. Those content
-features are not implemented. The article representation remains undecided;
-future images/downloads/streams need not use JSON.
+The request path is **browser → Next.js → Go**. The browser does not call Go
+directly; this slice needs no browser CORS configuration. Next.js fetches on each
+page request without caching. Reloading checks again; there is no polling or
+refresh widget. Its production build succeeds without a running backend.
 
-## Commands, tests, and CI
+`BACKEND_URL` is a configurable, server-only absolute backend origin.
+Never prefix it with `NEXT_PUBLIC_`. Go's `BACKEND_ADDR` controls its listen address;
+changing either address requires no source edit. `BACKEND_URL` defaults to
+`http://127.0.0.1:8080` and `BACKEND_ADDR` to `:8080`. Each health fetch has a
+two-second timeout.
 
-Small root Make targets delegate to native Go/npm commands:
+The helper resolves the health endpoint from the origin root and infers its
+response type from a Zod schema requiring `status: "ok"`. Valid data produces the
+available presentation and displays the response. Connection failures, timeouts,
+non-success HTTP responses, malformed JSON and schema-invalid data produce the
+unavailable presentation, not healthy data.
 
-- `setup`: Go dependencies and `npm ci`.
-- `dev-backend`, `dev-frontend`: independent processes in two terminals.
-- `fmt`, `check`, `test`, `build`: project-wide formatting, static checks, unit
-  tests, and independently buildable applications.
-- `test-e2e`: production builds and Playwright-managed startup/cleanup.
+Content ingestion, article rendering, drafts and publishing, appearance
+configuration, S3 or other content providers, math, authentication and database
+storage are not implemented. The API has no generic response envelope,
+GraphQL/gRPC or code generation. Future article and binary-response contracts
+remain undecided; see ADR 0001 rather than treating them as implemented features.
 
-The README documents fresh installation, configuration, native commands, browser
-installation, and production-style local execution.
+## Verification and environment entry points
 
-- Go: standard `testing` and `httptest` verify status/content-type/JSON; formatting,
-  `go vet`, and race-enabled tests. Router tests cover `/healthcheck`, rejected
-  methods, unknown routes, and removal of `/healthz`. A failing response writer
-  verifies that JSON write failures are logged with a descriptive message and
-  the underlying error details.
-- Frontend: Vitest verifies the communication boundary's valid and invalid data,
-  connection/HTTP failures, configuration, and timeout. React Testing Library
-  verifies synchronous success/unavailable presentation.
-- Integration: Playwright against running applications verifies the actual Go
-  health response appears on the page and backend unavailability produces the
-  fallback. Test async Server Components here, not through Vitest mocks.
-- GitHub Actions: formatting, lint/static checks, unit tests, independent production
-  builds, and integration tests on PRs. Local and CI targets verify the same
-  behavior. No AWS credentials, deployment jobs, or coverage-percentage gates.
-- Property testing/fuzzing waits for meaningful content/configuration invariants;
-  do not invent properties for a constant health response.
+[README](../../README.md#commands-and-verification) owns runnable setup and check
+instructions. [Makefile](../../Makefile) delegates to native commands, and
+[CI](../../.github/workflows/ci.yml) verifies the applications and isolated Go
+examples. There are no deployment jobs, cloud credentials or coverage-percentage gates.
 
-## Agent workflow and environment
+Behavior is exercised by the [health](../../backend/internal/health/handler_test.go),
+[router](../../backend/internal/router/router_test.go),
+[communication](../../frontend/src/lib/backend.test.ts),
+[presentation](../../frontend/src/app/health-status.test.tsx) and
+[integration](../../frontend/e2e) tests. The [agent verification policy](../../AGENTS.md#setup-and-verification)
+governs test selection.
 
-`AGENTS.md` provides concise instructions for all coding agents, with explicit
-execution authorization, scope escalation, changelog maintenance, verification,
-and human-only merge boundaries. The general PR template requests issue linkage,
-verification evidence, changelog accountability, and reviewer context.
+The [Go skill](../../.agents/skills/go-engineering/SKILL.md) provides one shared
+implementation/review method and standalone examples compiled by file list.
+The [planning skill](../../.agents/skills/implementation-planning/SKILL.md)
+provides its interactive method and optional issue formats and examples.
+[Workflow guidance](../workflow.md#repository-skills) owns discovery, loading and
+report conventions. No reviewer profiles, global installation or automatic
+issue execution are configured.
 
-The repository-local `go-engineering` skill uses the open Agent Skills format in
-`.agents/skills/`. It provides the Go implementation procedure, one shared
-implementation/review principles source, and standalone example Go files tested
-by named-file commands, without another application module or runtime dependency.
-Root instructions link to the skill; workflow guidance documents discovery and
-explicit activation fallbacks. Static/race example checks run through Make and CI;
-fuzz campaigns and operation benchmarks are manual, not performance gates. No
-reviewer profiles, global installation, or event-driven execution are configured.
-The skill entry point requires shared principles but loads examples only as needed.
-The repository-local `implementation-planning` skill provides an interactive method
-for security, early measurements, telemetry, verification and library/interface
-trade-offs. Root instructions require that discussion before design is settled;
-optional examples/formats show records and linked, bounded follow-up proposals.
-Planning is not implementation kickoff and no automatic issue execution is wired.
-Per-skill `token-performance/analysis.md` reports retain factual token measurements
-and verification evidence outside the mandatory runtime loading path.
-
-`.devin/blueprint.yaml` defines a Linux x86-64 environment reviewed through PRs.
-It reads tool versions from repository metadata, checksum-verifies archives,
-checks bundled npm, and incrementally prepares dependencies and Playwright.
-It starts no services and provisions no infrastructure. The existing installation
-requires a human-controlled mode switch and sync/build after merge; file-level
-verification is not evidence of activation or a successful fresh snapshot.
-
-[Workflow guidance](../workflow.md) describes activation and fresh-session checks,
-and records the visible main-protection findings and API access limitations.
-No automatic blueprint pipeline or repository security-policy change is included.
-
-## Infrastructure and unimplemented capabilities
-
-`infra/terraform` contains guidance only; no AWS account is required. No cloud
-resources, Terraform providers/state configuration, or deployment jobs exist.
-
-Content ingestion, article rendering, drafts/publishing, appearance configuration,
-S3/content providers, math support, authentication, and database storage are not
-implemented. The API has no generic response envelope, GraphQL/gRPC, or code
-generation. Go and Next.js responsibilities for future capabilities are outlined
-above; their detailed contracts still require planning and approval.
+The [Linux development blueprint](../../.devin/blueprint.yaml) owns environment
+initialization and maintenance. [Workflow guidance](../workflow.md#manual-activation-after-merge)
+owns activation and fresh-session verification; this document does not assert
+that a reviewed definition has been activated. No cloud resources, Terraform
+providers or state configuration have been created.

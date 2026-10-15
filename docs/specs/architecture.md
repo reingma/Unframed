@@ -96,6 +96,10 @@ The [performance review skill](../../.agents/skills/performance-review/SKILL.md)
 analyzes supplied performance artifacts against the diff for requested reviews
 and runs nothing. There is no CI performance job, performance history, frontend
 measurement or performance gate.
+The [security review skill](../../.agents/skills/security-review/SKILL.md) reviews
+changed code against specific security practices in its exposure and execution
+context for requested reviews, using only CI/CD artifacts. CI produces no
+dependency audit or secret-scan output, and there is no security gate.
 The [planning skill](../../.agents/skills/implementation-planning/SKILL.md)
 provides its interactive method and optional issue formats and examples.
 [Workflow guidance](../workflow.md#repository-skills) owns discovery, loading and

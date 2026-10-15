@@ -54,6 +54,21 @@ explicit native commands, not performance gates. Record actual activation,
 exercise commands/results, trade-offs and client limitations in PR verification,
 not as issue-specific repository reports or fabricated production evidence.
 
+### Skill token-performance reports
+
+For skill implementation or optimization issues requiring token analysis, run a
+fresh final analysis after clear-win improvements and commit one maintained report
+at `.agents/skills/<skill-name>/token-performance/analysis.md`. Include comparable
+draft/baseline and final counts, tokenizer/version and reproducible commands,
+measured scope, loading assumptions/observations, savings, preserved behavior,
+verification and gaps. These are factual verification records, not copied Linear
+specifications. No universal token budget or new CI gate is implied.
+
+Separate metadata, activated instructions, required references, optional resources
+and host context; inventory report size separately. Keep reports and worked
+exercises off mandatory runtime loading paths. Read them only for relevant work
+or review; running existing example checks does not require loading their source.
+
 ## Environment definition
 
 [.devin/blueprint.yaml](../.devin/blueprint.yaml) is the reviewed Git-backed

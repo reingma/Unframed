@@ -1,6 +1,6 @@
 ---
 name: security-review
-description: Review backend, frontend, dependency or CI changes for security risk by reading the code against specific security practices in its actual exposure and execution context, using only artifacts CI/CD produced. Never runs code, tests or scanners, and is not a comprehensive vulnerability test. Use when explicitly asked for a security review, not for implementation or general code review.
+description: Review backend, frontend, dependency or CI changes for security risk by reading the code against specific security practices in its exposure and execution context, using only CI/CD artifacts. Never runs code, tests or scanners; not a comprehensive vulnerability test. Use when explicitly asked for a security review, not for implementation or general code review.
 ---
 
 # Security review
@@ -23,9 +23,10 @@ findings. Do not routinely load examples or token reports.
 
 ## Procedure
 
-Never run code, tests, scanners, builds or exploit attempts. Use only artifacts
-CI/CD produced, such as check results, dependency audit or scan output and build
-logs. If a needed artifact is missing, report what it would have shown as not assessed.
+Never run code, tests, scanners, builds or exploit attempts; running checks
+belongs to implementation and CI. Use only artifacts CI/CD produced, such as
+check results, dependency audit or scan output and build logs. If a needed
+artifact is missing, report what it would have shown as not assessed.
 
 1. Establish intent. Read the changelog between the revisions, then the actual
    diff, including dependency manifests, lockfiles, CI workflows and configuration.
@@ -38,7 +39,8 @@ logs. If a needed artifact is missing, report what it would have shown as not as
    not prove exploitability; a clean, failed or missing scan does not prove absence.
 5. Where a specific, reasoned suspicion remains that code is exploitable, propose
    a targeted test for the author or CI to add: the input, the path it takes and
-   the expected safe outcome. Do not propose tests without such a suspicion.
+   the expected safe outcome. Do not propose tests without such a suspicion. A
+   confirmed risk's mitigation may include a regression test.
 6. Apply the owner's relevant review reasoning, classify each finding, and drop
    speculative or duplicate findings.
 
@@ -58,7 +60,8 @@ logs. If a needed artifact is missing, report what it would have shown as not as
 Rate severity from exposure, authentication needed, trigger, data sensitivity and
 impact, with the rationale. When an unknown fact changes the rating, give the
 rating conditionally, for example "high if the backend is publicly reachable";
-never downgrade on a hypothetical restriction.
+never downgrade on a hypothetical restriction. Decide blocking from the highest
+rating the unknown facts allow.
 
 For each finding, give the location at the reviewed revision, the affected
 behavior, reachability and triggering prerequisites, existing controls, impact,
@@ -84,4 +87,5 @@ Follow [AGENTS.md](../../../AGENTS.md) for host policy and the
 [architecture contracts](../../../docs/specs/architecture.md#http-and-rendering-contract)
 for the request path and server-only configuration. Nothing is deployed and there
 is no authentication yet, so exposure-dependent findings are conditional. CI
-produces no dependency audit or secret-scan output yet; report those as not assessed.
+produces no dependency audit or secret-scan output yet; unless such an artifact
+is supplied, report those areas as not assessed.

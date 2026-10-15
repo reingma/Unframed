@@ -30,7 +30,7 @@ check-frontend:
 
 check-skills:
 	test -z "$$(gofmt -l $(GO_SKILL_FILES))"
-	go vet $(GO_SKILL_FILES)
+	GOEXPERIMENT=jsonv2 go vet $(GO_SKILL_FILES)
 
 test: test-backend test-frontend test-skills
 
@@ -41,7 +41,7 @@ test-frontend:
 	cd frontend && npm test
 
 test-skills:
-	go test -race $(GO_SKILL_FILES)
+	GOEXPERIMENT=jsonv2 go test -race $(GO_SKILL_FILES)
 
 build: build-backend build-frontend
 

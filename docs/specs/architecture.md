@@ -40,6 +40,9 @@ The backend serializes JSON with standard-library `encoding/json/v2` using
 `json.MarshalWrite`. Go 1.26 requires the experimental `GOEXPERIMENT=jsonv2`
 build flag; backend Make targets and CI set it, and native Go commands must do
 the same. This API is not yet covered by Go's compatibility guarantee.
+The repository preference also covers Go tests and isolated skill examples;
+their Make checks set the same flag. Root agent instructions require an explained
+compatibility/contract or measured workload reason for an alternative JSON API.
 
 Reviewed on 2026-10-13 using official runtime releases, npm package release dates,
 engine/peer constraints, dependency audits, and local compatibility checks:

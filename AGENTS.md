@@ -73,6 +73,13 @@ Use the pinned versions in `backend/go.mod`, `frontend/.nvmrc`, and
 | `npm --prefix frontend audit`           | Dependency audit when dependencies change          |
 
 - Native Go compilation/vet/tests require `GOEXPERIMENT=jsonv2`; Make and CI set it.
+- Prefer established, workload-appropriate high-performance libraries rather than
+  defaulting to a standard/legacy API for convenience. Respect correctness,
+  security, maintenance and the pinned toolchain; justify material departures.
+  For JSON, prefer `encoding/json/v2` throughout this repository, including new
+  Go code, tests and skill examples. Use an alternative only for an explained
+  compatibility/contract or measured workload reason, not habit; v2 remains
+  experimental and requires the existing `GOEXPERIMENT=jsonv2` build flag.
 - Before the first E2E run, install Chromium with `npx playwright install chromium`
   inside `frontend`; Linux may need `--with-deps`. See README for test ports.
 - Run formatting/static checks and relevant unit, build, and integration checks.

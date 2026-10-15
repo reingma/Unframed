@@ -80,6 +80,11 @@ justify a dependency. Reuse existing libraries where suitable, avoiding obvious
 poor complexity without waiting for a production incident. Compare plausible
 alternatives when the decision matters; explain why a comparison is unnecessary
 for a low-risk choice instead of manufacturing a benchmark.
+Apply the host repository's approved library/API preferences to new code, tests
+and examples, not only application handlers. Explain evidence-backed departures
+for compatibility, contracts or workload costs; do not silently revert to a
+legacy/default API for convenience. Reusable guidance does not impose one
+project's toolchain-specific choice on every other project.
 
 Introduce measurements alongside the first meaningful executable workload, before
 later decisions hide their cost. Operation benchmarks measure a specific action;

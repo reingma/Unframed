@@ -74,7 +74,8 @@ to the shared guidance separately for explicit agreement and reviewed changes.
 Use the host repository's authoritative instructions, architecture, native
 commands, verification and delivery conventions rather than copying them here.
 In Unframed, start with root `AGENTS.md` and `docs/workflow.md`; its application
-Go commands require `GOEXPERIMENT=jsonv2`. The bundled exercise is not an
+and example Go commands require `GOEXPERIMENT=jsonv2`. Follow the host's approved
+library preferences, including its JSON API choice. The bundled exercise is not an
 application feature, API design, performance budget, or production measurement.
 
 No cloud provisioning, new tracing backend, automatic fixes/review pipeline,

@@ -3,7 +3,8 @@ package engineering
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"io"
@@ -85,13 +86,18 @@ func TestParseKey(t *testing.T) {
 }
 
 func TestParseKeyInput(t *testing.T) {
-	key, err := ParseKeyInput([]byte(`{"key":"record-1"}`))
-	if err != nil || key.String() != "record-1" {
-		t.Fatalf("valid input = %q, %v", key.String(), err)
+	for _, raw := range []string{`{"key":"record-1"}`, `{"key":"record-1","ignored":true}`} {
+		t.Run(raw, func(t *testing.T) {
+			key, err := ParseKeyInput([]byte(raw))
+			if err != nil || key.String() != "record-1" {
+				t.Fatalf("valid input = %q, %v", key.String(), err)
+			}
+		})
 	}
 	for _, raw := range []string{
 		`null`, `{}`, `{"key":null}`, `{"key":""}`, `{"key":"../record"}`,
 		`{"key":0}`, `{"key":false}`, `{"key":{}}`, `[]`, `{"key":`,
+		`{"Key":"record-1"}`, `{"key":"record-1","key":"record-1"}`,
 	} {
 		t.Run(raw, func(t *testing.T) {
 			key, err := ParseKeyInput([]byte(raw))
@@ -191,11 +197,11 @@ func TestRequestCorrelationAndCompletion(t *testing.T) {
 
 func assertRequestEvents(t *testing.T, output *bytes.Buffer, required ...string) {
 	t.Helper()
-	decoder := json.NewDecoder(output)
+	decoder := jsontext.NewDecoder(output)
 	events := make(map[string]bool)
 	for {
 		var event map[string]any
-		if err := decoder.Decode(&event); err == io.EOF {
+		if err := json.UnmarshalDecode(decoder, &event); err == io.EOF {
 			break
 		} else if err != nil {
 			t.Fatal(err)

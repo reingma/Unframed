@@ -4,6 +4,10 @@ These are synthetic engineering examples, not Unframed content requirements or
 production implementations. Run native commands from the repository root with
 its pinned Go toolchain. The two Go files in `assets/` form a standalone example
 package compiled by file list, not a new application module or dependency.
+They follow Unframed's preferred `encoding/json/v2` API, including the JSON log
+reader using `jsontext.Decoder` with `json.UnmarshalDecode`. Like the backend,
+they require `GOEXPERIMENT=jsonv2` with the pinned Go toolchain; this preference
+and its experimental compatibility trade-off are repository-specific.
 
 ## Types: protect a useful invariant, not every scalar
 
@@ -52,16 +56,18 @@ return ParseKey(*input.Key)
 ```
 
 `TestParseKeyInput` covers valid input, a null document, missing/null/empty keys,
-wrong JSON types, invalid grammar and malformed JSON. Nullable values remain at
+wrong JSON types, invalid grammar, malformed JSON, exact field matching,
+duplicate rejection and permitted unknown fields. Nullable values remain at
 the wire boundary; downstream lookup still consumes `Key`, not `*string`.
 
 This example deliberately treats missing and null as equivalent errors for a
 required field. If an optional update distinguishes "not supplied" from "clear
 this value", use presence-aware parsing instead; do not collapse those states or
-invent a default domain key. It uses the standard decoder's field matching and
-unknown/duplicate-field behavior, not a universal JSON API policy. Never decode
+invent a default domain key. It uses JSON v2's case-sensitive field matching and
+duplicate-name rejection, while allowing unknown fields; this is not a universal
+JSON API policy. Never decode
 directly into a domain representation in a way that bypasses its constructor:
-JSON `null` can leave non-pointer Go values unchanged, including invalid zero
+JSON v2 `null` resets values to their Go zero values, which may be invalid domain
 values. The existing zero-key guard at the public read boundary remains useful
 for callers that bypass this adapter; it does not replace parsing wire input.
 
@@ -109,9 +115,9 @@ The regex expresses the contract rather than copying the parser's byte loop.
 
 ```sh
 gofmt -l .agents/skills/go-engineering/assets/*.go
-go vet .agents/skills/go-engineering/assets/*.go
-go test -race .agents/skills/go-engineering/assets/*.go
-go test -run '^$' -fuzz FuzzParseKey -fuzztime 10s -parallel 2 .agents/skills/go-engineering/assets/*.go
+GOEXPERIMENT=jsonv2 go vet .agents/skills/go-engineering/assets/*.go
+GOEXPERIMENT=jsonv2 go test -race .agents/skills/go-engineering/assets/*.go
+GOEXPERIMENT=jsonv2 go test -run '^$' -fuzz FuzzParseKey -fuzztime 10s -parallel 2 .agents/skills/go-engineering/assets/*.go
 ```
 
 Named-file commands work outside the application module. `make check-skills` and
@@ -136,9 +142,9 @@ metadata outside source control unless the repository specifies otherwise:
 git rev-parse HEAD
 git status --short
 go version
-go env GOOS GOARCH GOEXPERIMENT
+GOEXPERIMENT=jsonv2 go env GOOS GOARCH GOEXPERIMENT
 # Also record CPU, load, workload, configuration and whether source is modified.
-go test -run '^$' -bench BenchmarkLookup -benchmem -count 5 .agents/skills/go-engineering/assets/*.go
+GOEXPERIMENT=jsonv2 go test -run '^$' -bench BenchmarkLookup -benchmem -count 5 .agents/skills/go-engineering/assets/*.go
 ```
 
 Run comparable base/current revisions in equivalent environments without

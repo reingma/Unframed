@@ -32,8 +32,9 @@ Go's version is pinned in `backend/go.mod`; Node's version is in `frontend/.nvmr
 With [nvm](https://github.com/nvm-sh/nvm), run `nvm install` and `nvm use` inside
 `frontend/` to select Node. Use the bundled npm 11.19.0.
 
-The backend uses standard-library `encoding/json/v2`, which is experimental in
-Go 1.26 and requires `GOEXPERIMENT=jsonv2` at compile time. Make and CI set this
+The preferred JSON API for all repository Go code, tests and skill examples is
+standard-library `encoding/json/v2`, already used by the backend. It is experimental
+in Go 1.26 and requires `GOEXPERIMENT=jsonv2` at compile time. Make and CI set this
 flag; set it explicitly when using native Go commands. The API is not yet covered
 by Go's compatibility guarantee.
 

@@ -30,17 +30,22 @@ make dev-frontend
 ```
 
 Open **http://localhost:3000**. With Go running, the page shows “Backend available”
-and the response. Stop Go and reload to see “Backend unavailable.” Reloading
-checks again. See the [HTTP contract](docs/specs/architecture.md#http-and-rendering-contract)
+and its actual `{"status":"ok"}` response. Stop Go and reload to see “Backend
+unavailable.” Reloading checks again; there is no polling.
+
+The page fetches on each request with no caching and a two-second timeout.
+The endpoint checks backend liveness only, not readiness of future dependencies.
+See the [HTTP contract](docs/specs/architecture.md#http-and-rendering-contract)
 for the request path and failure behavior.
 
 ## Configuration
 
-Configure the Go listen address with `BACKEND_ADDR` and the Next.js backend
-origin with `BACKEND_URL`. Their defaults live in
-[server setup](backend/cmd/server/main.go) and the
-[backend helper](frontend/src/lib/backend.ts), respectively. Follow the
-[server-only configuration contract](docs/specs/architecture.md#http-and-rendering-contract).
+| Variable       | Process        | Default                 | Purpose                                                            |
+| -------------- | -------------- | ----------------------- | ------------------------------------------------------------------ |
+| `BACKEND_ADDR` | Go             | `:8080`                 | Listen address, such as `127.0.0.1:9090`.                          |
+| `BACKEND_URL`  | Next.js server | `http://127.0.0.1:8080` | Absolute backend origin; `/healthcheck` is resolved from its root. |
+
+Follow the [server-only configuration contract](docs/specs/architecture.md#http-and-rendering-contract).
 
 For example, in the two terminals:
 

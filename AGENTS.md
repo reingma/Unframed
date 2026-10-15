@@ -51,8 +51,9 @@
   facts change. Record enduring, consequential rationale in
   [ADRs](docs/decisions/README.md); routine edits do not need an ADR.
 - Give each rule or fact one canonical home. Elsewhere, use a link or a short
-  pointer rather than another policy copy. Link code-owned values to their source
-  artifacts instead of maintaining parallel tables. Write plain sentences that
+  pointer rather than another policy copy. Link code-owned values such as version
+  pins to their source artifacts instead of maintaining parallel tables. Public
+  contract values, such as configuration defaults and timeouts, stay documented. Write plain sentences that
   humans can skim; token savings must not sacrifice clarity or safeguards.
 - Every feature PR and notable behavior change needs a concise
   [changelog](CHANGELOG.md) entry under Unreleased in the appropriate category.

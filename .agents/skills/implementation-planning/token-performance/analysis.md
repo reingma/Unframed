@@ -16,8 +16,8 @@ working tree. Each pair is **cl100k / o200k**.
 | Required `references/method.md`, unchanged | 1,064 / 1,060 | 1,064 / 1,060 |       0 / 0 |
 | Required skill context                     | 1,543 / 1,539 | 1,439 / 1,433 | −104 / −106 |
 | Whole runtime bundle (not default loading) | 3,309 / 3,285 | 3,205 / 3,179 | −104 / −106 |
-| Host `AGENTS.md` + `docs/workflow.md`      | 2,987 / 2,988 | 2,377 / 2,374 | −610 / −614 |
-| Required skill context + those host files  | 4,530 / 4,527 | 3,816 / 3,807 | −714 / −720 |
+| Host `AGENTS.md` + `docs/workflow.md`      | 2,987 / 2,988 | 2,405 / 2,403 | −582 / −585 |
+| Required skill context + those host files  | 4,530 / 4,527 | 3,844 / 3,836 | −686 / −691 |
 
 Required-context savings are 6.74% / 6.89%; the entry point alone is 21.71% /
 22.13% smaller. The entry point removed repeated authority, tracker and

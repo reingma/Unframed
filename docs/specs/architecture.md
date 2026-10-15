@@ -58,9 +58,9 @@ refresh widget. Its production build succeeds without a running backend.
 
 `BACKEND_URL` is a configurable, server-only absolute backend origin.
 Never prefix it with `NEXT_PUBLIC_`. Go's `BACKEND_ADDR` controls its listen address;
-changing either address requires no source edit. Defaults and the bounded fetch
-timeout are owned by [server setup](../../backend/cmd/server/main.go) and the
-[backend helper](../../frontend/src/lib/backend.ts).
+changing either address requires no source edit. `BACKEND_URL` defaults to
+`http://127.0.0.1:8080` and `BACKEND_ADDR` to `:8080`. Each health fetch has a
+two-second timeout.
 
 The helper resolves the health endpoint from the origin root and infers its
 response type from a Zod schema requiring `status: "ok"`. Valid data produces the

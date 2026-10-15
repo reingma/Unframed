@@ -71,7 +71,8 @@ Snapshots retain files, not running servers; startup happens in the session.
 
 Fresh checkouts and CI use the [README setup procedure](../README.md#fresh-checkout).
 Blueprint maintenance uses incremental `npm install`; check for unexpected
-lockfile changes. Its knowledge section points to canonical entry points.
+lockfile changes. Its knowledge section is a quick reference to common commands
+and the canonical entry points.
 
 ## Manual activation after merge
 

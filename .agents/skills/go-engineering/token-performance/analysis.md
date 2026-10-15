@@ -19,16 +19,16 @@ the ENG-26 tree, not the current files.
 | Required: `references/principles.md`          | 1,494 → 1,524 | 1,492 → 1,522 |
 | Optional: `references/examples.md`            | 2,063 → 1,983 | 2,062 → 1,979 |
 | Optional: both `assets/*.go` files, unchanged | 2,840 → 2,840 | 2,841 → 2,841 |
-| Host: `AGENTS.md`                             | 1,409 → 1,251 | 1,406 → 1,247 |
-| Host: `docs/workflow.md`                      | 1,578 → 1,126 | 1,582 → 1,127 |
+| Host: `AGENTS.md`                             | 1,409 → 1,271 | 1,406 → 1,268 |
+| Host: `docs/workflow.md`                      | 1,578 → 1,134 | 1,582 → 1,135 |
 
 | Cumulative scenario              |                   cl100k_base |                    o200k_base |
 | -------------------------------- | ----------------------------: | ----------------------------: |
 | Required core                    |   2,032 → 1,982 (−50; −2.46%) |   2,025 → 1,979 (−46; −2.27%) |
 | Optional documentation + assets  |   4,903 → 4,823 (−80; −1.63%) |   4,903 → 4,820 (−83; −1.69%) |
 | Runtime bundle, excluding report |  6,935 → 6,805 (−130; −1.87%) |  6,928 → 6,799 (−129; −1.86%) |
-| Selected host context            | 2,987 → 2,377 (−610; −20.42%) | 2,988 → 2,374 (−614; −20.55%) |
-| Core + selected host context     | 5,019 → 4,359 (−660; −13.15%) | 5,013 → 4,353 (−660; −13.17%) |
+| Selected host context            | 2,987 → 2,405 (−582; −19.48%) | 2,988 → 2,403 (−585; −19.58%) |
+| Core + selected host context     | 5,019 → 4,387 (−632; −12.59%) | 5,013 → 4,382 (−631; −12.59%) |
 
 The host baseline is higher than the ENG-26 final value because ENG-21 added
 planning-skill guidance to the same files in between.

@@ -27,14 +27,15 @@ A new indexed store's tests assert `len(store.index) == 3`, that a fake source w
 called exactly once, and an exact log message. No test covers `ErrNotFound`,
 invalid keys or cancellation.
 
-> **Defect, blocking.** `store_test.go` does not check the `Lookup` contract:
-> missing keys, invalid input and cancellation are untested. The existing
-> assertions would also fail if the linear store were swapped in. Run the shared
-> contract tests against both stores and drop the layout and call-count checks.
-> Assert the log message only if it is a contract.
+> **Uncertainty, blocking.** `store_test.go` does not check the `Lookup` contract:
+> missing keys, invalid input and cancellation are untested, so an approved
+> criterion has no evidence. Run the shared contract tests against both stores.
+>
+> **Defect, blocking.** The index-size and exact-log assertions would fail if the
+> linear store were swapped in, breaking the shared verification method. Drop
+> them, and assert logging only through the fields that form a contract.
 
-If contract tests already existed and only the extra assertions were brittle, this
-would be a non-blocking preference, not a defect.
+The call-count check can stay if "a hit does not refetch" is an observable promise.
 
 ## Unnecessary abstraction
 
@@ -42,15 +43,15 @@ The diff adds `type KeyParser interface { Parse(string) (Key, error) }` with one
 implementation, so tests can inject a fake parser returning arbitrary `Key` values.
 It also wraps a loop counter as `type Attempt int`.
 
-> **Defect, blocking.** The fake parser in `handler_test.go` returns keys that
-> never went through `ParseKey`, so handler tests no longer exercise the grammar
-> boundary. Test through the real parser instead.
+> **Uncertainty, blocking.** The fake parser in `handler_test.go` returns keys that
+> never went through `ParseKey`, so no test shows the handler enforces the grammar.
+> The handler may still be correct. Test through the real parser instead.
 >
 > **Preference, non-blocking.** `KeyParser` has no credible alternative
 > implementation, and `Attempt` guards against no confusion between concepts.
 > Both add indirection without a guarantee; inline them unless a planned use exists.
 
-Removing the interface is a preference. Bypassing the invariant it enabled is the defect.
+Removing the interface is a preference. The missing evidence it enabled is what blocks.
 
 ## Justified trade-off
 

@@ -41,7 +41,8 @@ a review exercise. Do not routinely load examples or token reports.
 - **Defect:** a confirmed requirement, contract or invariant violation, or a
   security risk. Blocking.
 - **Uncertainty:** missing evidence or context that could hide a defect. State
-  what would resolve it; blocking only when the risk is consequential.
+  what would resolve it. Blocking when the risk is consequential, including an
+  approved criterion with no test or other evidence.
 - **Trade-off:** a justified choice whose cost and evidence are recorded. Not blocking.
 - **Preference:** a non-blocking suggestion. Missing a preferred pattern alone is
   not grounds to reject a change.

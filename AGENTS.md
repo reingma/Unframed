@@ -8,6 +8,9 @@
 - Implement only the authorized scope. Escalate material requirements,
   architecture/dependency, security-boundary, infrastructure/cost, destructive,
   or production-release changes. Routine implementation choices may be autonomous.
+- For authorized Go implementation work, load the
+  [Go engineering skill](.agents/skills/go-engineering/SKILL.md) and its shared
+  principles. Skill activation does not grant execution authority.
 - Gabriel reviews and decides whether to merge. Never merge or enable auto-merge.
 - Before implementation, read the current Linear issue and acceptance criteria,
   [README](README.md), [living architecture](docs/specs/architecture.md), relevant
@@ -70,6 +73,13 @@ Use the pinned versions in `backend/go.mod`, `frontend/.nvmrc`, and
 | `npm --prefix frontend audit`           | Dependency audit when dependencies change          |
 
 - Native Go compilation/vet/tests require `GOEXPERIMENT=jsonv2`; Make and CI set it.
+- Prefer established, workload-appropriate high-performance libraries rather than
+  defaulting to a standard/legacy API for convenience. Respect correctness,
+  security, maintenance and the pinned toolchain; justify material departures.
+  For JSON, prefer `encoding/json/v2` throughout this repository, including new
+  Go code, tests and skill examples. Use an alternative only for an explained
+  compatibility/contract or measured workload reason, not habit; v2 remains
+  experimental and requires the existing `GOEXPERIMENT=jsonv2` build flag.
 - Before the first E2E run, install Chromium with `npx playwright install chromium`
   inside `frontend`; Linux may need `--with-deps`. See README for test ports.
 - Run formatting/static checks and relevant unit, build, and integration checks.

@@ -22,6 +22,7 @@ docs/decisions/          architectural decisions and rationale
 .github/workflows/       verification, not deployment
 AGENTS.md                instructions for all coding agents
 .devin/blueprint.yaml     reviewed development environment definition
+.agents/skills/          portable, repository-local engineering methods/examples
 ```
 
 ## Fresh checkout
@@ -31,8 +32,9 @@ Go's version is pinned in `backend/go.mod`; Node's version is in `frontend/.nvmr
 With [nvm](https://github.com/nvm-sh/nvm), run `nvm install` and `nvm use` inside
 `frontend/` to select Node. Use the bundled npm 11.19.0.
 
-The backend uses standard-library `encoding/json/v2`, which is experimental in
-Go 1.26 and requires `GOEXPERIMENT=jsonv2` at compile time. Make and CI set this
+The preferred JSON API for all repository Go code, tests and skill examples is
+standard-library `encoding/json/v2`, already used by the backend. It is experimental
+in Go 1.26 and requires `GOEXPERIMENT=jsonv2` at compile time. Make and CI set this
 flag; set it explicitly when using native Go commands. The API is not yet covered
 by Go's compatibility guarantee.
 
@@ -87,6 +89,7 @@ Run from the repository root:
 | `make test`     | Run Go race-enabled tests and frontend Vitest tests.                         |
 | `make build`    | Build both applications independently; no live backend needed.               |
 | `make test-e2e` | Build production applications and run managed Playwright integration checks. |
+| `make check-skills`, `make test-skills` | Check the isolated Go skill examples; included in `check` and `test`. |
 
 Before the first integration run, install the Chromium browser:
 
@@ -139,6 +142,7 @@ verification, run `backend/bin/server` and `npm run start` inside `frontend/` af
 - [Decisions and engineering-resource links](docs/decisions/README.md)
 - [Instructions for all coding agents](AGENTS.md)
 - [Workflow and manual blueprint activation](docs/workflow.md)
+- [Go engineering implementation skill](.agents/skills/go-engineering/SKILL.md)
 - [Terraform scope](infra/terraform/README.md)
 
 Linear owns planned requirements, approval, and acceptance criteria. GitHub holds

@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Security review skill that reviews backend, frontend, dependency and CI changes
+  against specific security practices in their exposure and execution context,
+  using only CI/CD artifacts and proposing targeted tests only for specific suspicions.
 - Performance review skill for backend and frontend changes that analyzes supplied
   performance artifacts against the changelog and diff, separates avoidable
   overhead from accepted cost and flags missing performance tests, without running anything.

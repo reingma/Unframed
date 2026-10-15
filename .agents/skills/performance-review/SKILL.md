@@ -65,10 +65,9 @@ not measured. Local results do not establish production performance.
 
 ## Feedback refinements
 
-Use the owner's reasoning in the current review. Propose enduring refinements
-separately, naming the source and the general rule. Change this skill only after
-the owner's explicit agreement and a reviewed PR. Do not silently generalize a
-situational comment or rewrite guidance automatically.
+Follow the shared
+[review feedback rule](../go-engineering/references/principles.md#trade-offs-and-review-feedback).
+Change this skill only after the owner's explicit agreement and a reviewed PR.
 
 ## Limits
 

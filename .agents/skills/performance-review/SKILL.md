@@ -87,8 +87,11 @@ telemetry or provision cloud resources.
 
 ## Unframed adapter
 
-Follow [AGENTS.md](../../../AGENTS.md) for host policy. No CI performance job,
-performance history or frontend measurement exists yet; until the baseline work
-defines them, use artifacts attached to the PR or request and report what is
-missing. Report a missing frontend measurement as non-blocking until frontend
-measurement exists.
+Follow [AGENTS.md](../../../AGENTS.md) for host policy. Committed performance
+history lives in [perf/history/](../../../perf/README.md) as compressed records
+carrying an environment factor; a request or PR names the records and attaches
+`perf compare` output or a generated report as the measured artifact. Raw run
+artifacts are local-only and unavailable to reviews. Records from a different
+environment are context, not a before/after measurement. There is no CI
+performance job and no frontend measurement yet; report a missing frontend
+measurement as non-blocking until it exists.

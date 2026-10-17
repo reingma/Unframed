@@ -12,4 +12,6 @@ change and do not share the author's conversation.
 
 Read `docs/review-handoffs.md` (section "Reviewer contract") and the intake you
 were given, then follow `.agents/skills/performance-review/SKILL.md` against the pinned tree,
-diff and artifacts it names. Return the report the contract describes.
+diff and artifacts it names. Committed performance history, when the intake names
+it, is in the pinned tree under `perf/history/`; `perf/README.md` there explains
+the record format. Return the report the contract describes.

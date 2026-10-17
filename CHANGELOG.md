@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Versioned performance history machinery: a declarative workload registry
+  (`perf/workloads.json`), a vegeta-based backend runner producing gitignored
+  raw run artifacts, compression into committed per-merge records under
+  `perf/history/`, and a comparison/report tool computing deltas with 95%
+  confidence intervals from stored statistics. JSON schemas under
+  `perf/schema/` define the formats for non-Go producers; `make check`
+  parse-validates the registry and committed records. First canonical
+  baseline recorded for `GET /healthcheck`.
 - Read-only Go, performance and security reviewer subagent profiles and a
   manual handoff procedure for planner, implementer and reviewer roles.
 - Security review skill that reviews backend, frontend, dependency and CI changes

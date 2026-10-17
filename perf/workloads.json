@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "workloads": [
+    {
+      "id": "backend-healthcheck",
+      "kind": "http",
+      "target": "http://127.0.0.1:8080/healthcheck",
+      "rate": 50,
+      "duration": "10s"
+    }
+  ]
+}

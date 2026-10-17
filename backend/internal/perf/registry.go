@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -17,7 +18,8 @@ var (
 
 // Workload is one declarative registry entry. Kind selects which fields
 // apply: http workloads carry rate (requests per second) and duration;
-// browser workloads carry repetitions (reserved for the frontend runner).
+// browser workloads carry repetitions; build workloads carry only a target.
+// Browser and build workloads are run by the frontend runner.
 type Workload struct {
 	ID          string   `json:"id"`
 	Kind        string   `json:"kind"`
@@ -102,6 +104,14 @@ func (w *Workload) validate() error {
 			strings.ContainsAny(w.Target, "\\") ||
 			strings.IndexFunc(w.Target, isSpaceOrControl) >= 0 {
 			return fmt.Errorf("browser workload %q target %q is not a route path or local URL", w.ID, w.Target)
+		}
+	case KindBuild:
+		switch {
+		case w.Rate != nil || w.Duration != "" || w.Repetitions != nil:
+			return fmt.Errorf("build workload %q must not set rate, duration or repetitions", w.ID)
+		case !filepath.IsLocal(w.Target) || strings.ContainsAny(w.Target, "\\") ||
+			strings.IndexFunc(w.Target, isSpaceOrControl) >= 0:
+			return fmt.Errorf("build workload %q target %q is not a repository-relative path", w.ID, w.Target)
 		}
 	default:
 		return fmt.Errorf("workload %q has invalid kind %q", w.ID, w.Kind)

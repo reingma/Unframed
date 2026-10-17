@@ -69,6 +69,7 @@ func RunHTTPWorkload(ctx context.Context, w Workload, env Environment) (RunArtif
 		StartedAt:   started,
 		FinishedAt:  time.Now().UTC(),
 		Environment: env,
+		Toolchain:   GoToolchain(),
 		Samples:     samples,
 	}, nil
 }

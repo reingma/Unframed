@@ -2,50 +2,141 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://unframed.local/perf/schema/history-record.schema.json",
   "title": "Compressed history record",
-  "description": "Committed per-merge summary under perf/history/. File name is NNNN-<sha8>.json matching sequence and revision.",
-  "type": "object",
-  "required": ["version", "sequence", "revision", "tag", "recorded_at", "environment", "workloads"],
-  "additionalProperties": false,
-  "properties": {
-    "version": {"const": 1},
-    "sequence": {"type": "integer", "exclusiveMinimum": 0},
-    "revision": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
-    "tag": {"type": "string", "minLength": 1, "description": "Changelog or issue tag, e.g. ENG-30."},
-    "recorded_at": {"type": "string", "format": "date-time"},
-    "environment": {"$ref": "#/$defs/environment"},
-    "workloads": {
-      "type": "array",
-      "minItems": 1,
-      "items": {
-        "type": "object",
-        "required": ["id", "kind", "samples", "errors", "metrics"],
-        "additionalProperties": false,
-        "properties": {
-          "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
-          "kind": {"enum": ["http", "browser"]},
-          "samples": {"type": "integer", "exclusiveMinimum": 0},
-          "errors": {"type": "integer", "minimum": 0},
-          "metrics": {
+  "description": "Committed per-merge summary under perf/history/. File name is NNNN-<sha8>.json matching sequence and revision. Version 2 is current; version 1 records (one record-level Go toolchain string) remain valid and are read as version 2 with each workload's toolchain {\"go\": <toolchain>}.",
+  "oneOf": [{"$ref": "#/$defs/recordV2"}, {"$ref": "#/$defs/recordV1"}],
+  "$defs": {
+    "recordV2": {
+      "type": "object",
+      "required": [
+        "version",
+        "sequence",
+        "revision",
+        "tag",
+        "recorded_at",
+        "environment",
+        "workloads"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "version": {"const": 2},
+        "sequence": {"type": "integer", "exclusiveMinimum": 0},
+        "revision": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "tag": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Changelog or issue tag, e.g. ENG-30."
+        },
+        "recorded_at": {"type": "string", "format": "date-time"},
+        "environment": {"$ref": "#/$defs/environment"},
+        "workloads": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
             "type": "object",
-            "minProperties": 1,
-            "additionalProperties": {"$ref": "#/$defs/metricStats"}
+            "required": ["id", "kind", "toolchain", "samples", "errors", "metrics"],
+            "additionalProperties": false,
+            "properties": {
+              "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+              "kind": {"enum": ["http", "browser", "build"]},
+              "toolchain": {"$ref": "#/$defs/toolchain"},
+              "samples": {"type": "integer", "exclusiveMinimum": 0},
+              "errors": {"type": "integer", "minimum": 0},
+              "metrics": {
+                "type": "object",
+                "minProperties": 1,
+                "additionalProperties": {"$ref": "#/$defs/metricStats"}
+              }
+            }
           }
         }
       }
-    }
-  },
-  "$defs": {
+    },
+    "recordV1": {
+      "type": "object",
+      "required": [
+        "version",
+        "sequence",
+        "revision",
+        "tag",
+        "recorded_at",
+        "environment",
+        "workloads"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "version": {"const": 1},
+        "sequence": {"type": "integer", "exclusiveMinimum": 0},
+        "revision": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "tag": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Changelog or issue tag, e.g. ENG-30."
+        },
+        "recorded_at": {"type": "string", "format": "date-time"},
+        "environment": {"$ref": "#/$defs/environmentV1"},
+        "workloads": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["id", "kind", "samples", "errors", "metrics"],
+            "additionalProperties": false,
+            "properties": {
+              "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+              "kind": {"enum": ["http", "browser"]},
+              "samples": {"type": "integer", "exclusiveMinimum": 0},
+              "errors": {"type": "integer", "minimum": 0},
+              "metrics": {
+                "type": "object",
+                "minProperties": 1,
+                "additionalProperties": {"$ref": "#/$defs/metricStats"}
+              }
+            }
+          }
+        }
+      }
+    },
     "environment": {
+      "type": "object",
+      "required": ["machine", "os", "arch", "cpu"],
+      "additionalProperties": false,
+      "properties": {
+        "machine": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Opaque label, never a hostname."
+        },
+        "os": {"type": "string", "minLength": 1, "description": "Go GOOS name, e.g. linux."},
+        "arch": {"type": "string", "minLength": 1, "description": "Go GOARCH name, e.g. amd64."},
+        "cpu": {"type": "string", "minLength": 1}
+      }
+    },
+    "environmentV1": {
       "type": "object",
       "required": ["machine", "os", "arch", "cpu", "toolchain"],
       "additionalProperties": false,
       "properties": {
-        "machine": {"type": "string", "minLength": 1, "description": "Opaque label, never a hostname."},
-        "os": {"type": "string", "minLength": 1},
-        "arch": {"type": "string", "minLength": 1},
+        "machine": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Opaque label, never a hostname."
+        },
+        "os": {"type": "string", "minLength": 1, "description": "Go GOOS name, e.g. linux."},
+        "arch": {"type": "string", "minLength": 1, "description": "Go GOARCH name, e.g. amd64."},
         "cpu": {"type": "string", "minLength": 1},
-        "toolchain": {"type": "string", "minLength": 1}
+        "toolchain": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Go toolchain of the measuring binary."
+        }
       }
+    },
+    "toolchain": {
+      "type": "object",
+      "minProperties": 1,
+      "description": "Software versions that produced the measurements, keyed by component, e.g. {\"node\": \"v26.11.1\", \"chromium\": \"153.0.8010.12\"}.",
+      "propertyNames": {"pattern": "^[a-z0-9][a-z0-9-]*$"},
+      "additionalProperties": {"type": "string", "minLength": 1}
     },
     "metricStats": {
       "type": "object",

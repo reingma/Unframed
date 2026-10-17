@@ -20,8 +20,12 @@ and future rendering boundary.
   the liveness endpoint.
 - [backend/internal/perf](../../backend/internal/perf) and
   [backend/cmd/perf](../../backend/cmd/perf) own the performance measurement
-  machinery: registry parsing, the vegeta-based runner, compression of raw
-  artifacts into committed history records, and comparison/report analysis.
+  machinery: registry parsing, the vegeta-based HTTP runner, compression of
+  raw artifacts into committed history records, and comparison/report analysis.
+- [frontend/perf](../../frontend/perf/frontend.perf.ts) owns the browser and
+  build runners. They write raw artifacts in the shared schema, which the Go
+  tool compresses: Playwright measures route TTFB, FCP and LCP against
+  production servers, and the build runner measures client bundle bytes.
 - [perf](../../perf/README.md) owns the workload registry, the versioned JSON
   schemas, committed history records under `perf/history/`, and gitignored raw
   runs and reports. [ADR 0003](../decisions/0003-performance-history-records-and-measurement.md)
@@ -104,9 +108,10 @@ The [performance review skill](../../.agents/skills/performance-review/SKILL.md)
 analyzes supplied performance artifacts against the diff for requested reviews
 and runs nothing. Committed performance history lives under
 [perf/history/](../../perf/README.md): one compressed record per merge to
-`main`, produced by the local vegeta-based harness on the designated machine
-and validated for shape by `make check`. There is no CI performance job,
-frontend measurement or performance gate; raw run artifacts are local-only.
+`main`, produced by the local backend and frontend runners on the designated
+machine and validated for shape by `make check`. There is no CI performance
+job, per-component frontend measurement or performance gate; raw run
+artifacts are local-only.
 The [security review skill](../../.agents/skills/security-review/SKILL.md) reviews
 changed code against specific security practices in its exposure and execution
 context for requested reviews, using only CI/CD artifacts. CI produces no

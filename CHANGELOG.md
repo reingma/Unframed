@@ -17,6 +17,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `perf/schema/` define the formats for non-Go producers; `make check`
   parse-validates the registry and committed records. First canonical
   baseline recorded for `GET /healthcheck`.
+- Frontend performance measurements in the shared history: a Playwright
+  runner records route-level TTFB, FCP and LCP against production servers,
+  and a build runner records client JavaScript and CSS bundle sizes. Both
+  are registry workloads (`frontend-root`, `frontend-bundle`) run by
+  `make perf-run`. Schema version 2 moves the toolchain to each workload,
+  and comparisons flag toolchain changes per workload; version 1 records
+  remain readable.
 - Read-only Go, performance and security reviewer subagent profiles and a
   manual handoff procedure for planner, implementer and reviewer roles.
 - Security review skill that reviews backend, frontend, dependency and CI changes

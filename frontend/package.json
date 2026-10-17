@@ -17,7 +17,8 @@
     "fmt": "prettier --write .",
     "fmt:check": "prettier --check .",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "perf": "playwright test --config playwright.perf.config.ts"
   },
   "dependencies": {
     "next": "16.3.8",

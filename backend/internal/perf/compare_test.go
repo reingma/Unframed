@@ -66,3 +66,31 @@ func TestCompareRecordsWorkloadSets(t *testing.T) {
 		t.Fatalf("got only-in-A %v only-in-B %v", c.OnlyInA, c.OnlyInB)
 	}
 }
+
+func TestCompareRecordsToolchainChange(t *testing.T) {
+	a := testRecord(1, "e461931122f0d9f2b1a3c4e5f60718293a4b5c6d", "ENG-29")
+	b := testRecord(2, "537af8d3aabbccddee11223344556677889900aa", "ENG-30")
+	b.Workloads[0].Toolchain = Toolchain{"go": "go1.28.0"}
+	c := CompareRecords("a", a, "b", b)
+	if !c.EnvMatch {
+		t.Error("a toolchain change must not flag the host environment")
+	}
+	if len(c.ToolchainChanges) != 1 || c.ToolchainChanges[0].WorkloadID != "backend-healthcheck" {
+		t.Fatalf("got %+v", c.ToolchainChanges)
+	}
+	if len(c.Deltas) != 1 {
+		t.Fatalf("toolchain change must still report deltas, got %d", len(c.Deltas))
+	}
+	var text, report strings.Builder
+	if err := c.WriteText(&text); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.WriteHTML(&report); err != nil {
+		t.Fatal(err)
+	}
+	for name, out := range map[string]string{"text": text.String(), "html": report.String()} {
+		if !strings.Contains(out, "changed toolchain") || !strings.Contains(out, "go=go1.28.0") {
+			t.Errorf("%s output does not flag the toolchain change:\n%s", name, out)
+		}
+	}
+}

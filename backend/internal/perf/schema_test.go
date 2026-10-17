@@ -9,11 +9,10 @@ import (
 
 func testEnvironment() Environment {
 	return Environment{
-		Machine:   "workstation-1",
-		OS:        "linux",
-		Arch:      "amd64",
-		CPU:       "Test CPU",
-		Toolchain: "go1.27.2",
+		Machine: "workstation-1",
+		OS:      "linux",
+		Arch:    "amd64",
+		CPU:     "Test CPU",
 	}
 }
 
@@ -25,6 +24,7 @@ func testArtifact() RunArtifact {
 		StartedAt:   time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC),
 		FinishedAt:  time.Date(2026, 10, 15, 12, 0, 10, 0, time.UTC),
 		Environment: testEnvironment(),
+		Toolchain:   Toolchain{"go": "go1.27.2"},
 		Samples: []Sample{
 			{Metrics: map[string]float64{"latency_ns": 1000}, Status: 200},
 			{Metrics: map[string]float64{"latency_ns": 2000}, Status: 200},
@@ -45,7 +45,8 @@ func TestRunArtifactRoundTrip(t *testing.T) {
 	}
 	if got.WorkloadID != want.WorkloadID || got.Kind != want.Kind ||
 		!got.StartedAt.Equal(want.StartedAt) || !got.FinishedAt.Equal(want.FinishedAt) ||
-		got.Environment != want.Environment || len(got.Samples) != len(want.Samples) {
+		got.Environment != want.Environment || !got.Toolchain.Equal(want.Toolchain) ||
+		len(got.Samples) != len(want.Samples) {
 		t.Fatalf("round trip mismatch: %+v", got)
 	}
 	for i, s := range got.Samples {
@@ -73,11 +74,12 @@ func testRecord(seq int, rev, tag string) HistoryRecord {
 		RecordedAt:  time.Date(2026, 10, 15, 12, 30, 0, 0, time.UTC),
 		Environment: testEnvironment(),
 		Workloads: []WorkloadStats{{
-			ID:      "backend-healthcheck",
-			Kind:    KindHTTP,
-			Samples: 10,
-			Errors:  0,
-			Metrics: map[string]MetricStats{"latency_ns": testStats()},
+			ID:        "backend-healthcheck",
+			Kind:      KindHTTP,
+			Toolchain: Toolchain{"go": "go1.27.2"},
+			Samples:   10,
+			Errors:    0,
+			Metrics:   map[string]MetricStats{"latency_ns": testStats()},
 		}},
 	}
 }
@@ -110,12 +112,15 @@ func TestParseRunArtifactRejects(t *testing.T) {
 		t.Fatal(err)
 	}
 	cases := map[string]string{
-		"unknown member": strings.Replace(string(valid), `"version": 1`, `"version": 1, "extra": true`, 1),
-		"bad version":    strings.Replace(string(valid), `"version": 1`, `"version": 2`, 1),
+		"unknown member": strings.Replace(string(valid), `"version": 2`, `"version": 2, "extra": true`, 1),
+		"bad version":    strings.Replace(string(valid), `"version": 2`, `"version": 1`, 1),
 		"empty id":       strings.Replace(string(valid), `"workload_id": "backend-healthcheck"`, `"workload_id": ""`, 1),
 		"bad id shape":   strings.Replace(string(valid), `"workload_id": "backend-healthcheck"`, `"workload_id": "Has Space"`, 1),
 		"bad kind":       strings.Replace(string(valid), `"kind": "http"`, `"kind": "rpc"`, 1),
 		"empty machine":  strings.Replace(string(valid), `"machine": "workstation-1"`, `"machine": ""`, 1),
+		"no toolchain":   strings.Replace(string(valid), `"go": "go1.27.2"`, ``, 1),
+		"bad component":  strings.Replace(string(valid), `"go": "go1.27.2"`, `"Go": "go1.27.2"`, 1),
+		"empty version":  strings.Replace(string(valid), `"go": "go1.27.2"`, `"go": ""`, 1),
 	}
 	for name, doc := range cases {
 		if _, err := ParseRunArtifact([]byte(doc)); err == nil {
@@ -140,8 +145,9 @@ func TestParseHistoryRecordRejects(t *testing.T) {
 		t.Fatal(err)
 	}
 	cases := map[string]string{
-		"unknown member":   strings.Replace(string(valid), `"version": 1`, `"version": 1, "extra": 1`, 1),
-		"bad version":      strings.Replace(string(valid), `"version": 1`, `"version": 9`, 1),
+		"unknown member":   strings.Replace(string(valid), `"version": 2`, `"version": 2, "extra": 1`, 1),
+		"bad version":      strings.Replace(string(valid), `"version": 2`, `"version": 9`, 1),
+		"no toolchain":     strings.Replace(string(valid), `"go": "go1.27.2"`, ``, 1),
 		"bad revision":     strings.Replace(string(valid), `"e461931122f0d9f2b1a3c4e5f60718293a4b5c6d"`, `"notasha"`, 1),
 		"empty tag":        strings.Replace(string(valid), `"tag": "ENG-30"`, `"tag": ""`, 1),
 		"zero sequence":    strings.Replace(string(valid), `"sequence": 1`, `"sequence": 0`, 1),
@@ -162,6 +168,54 @@ func TestParseHistoryRecordRejects(t *testing.T) {
 	}
 	if _, err := ParseHistoryRecord(dupDoc); err == nil {
 		t.Error("duplicate workload ids: expected parse error")
+	}
+}
+
+// v1RecordDoc is a version 1 record as ENG-30 committed it: one
+// record-level Go toolchain string.
+const v1RecordDoc = `{
+  "version": 1,
+  "sequence": 1,
+  "revision": "ed2c70da4c5e420fbbb1a9e2fa45155c38ca1d3f",
+  "tag": "ENG-30",
+  "recorded_at": "2026-10-15T20:11:22Z",
+  "environment": {"machine": "workstation-1", "os": "linux", "arch": "amd64", "cpu": "Test CPU", "toolchain": "go1.27.2"},
+  "workloads": [{
+    "id": "backend-healthcheck", "kind": "http", "samples": 2, "errors": 0,
+    "metrics": {"latency_ns": {"values": 2, "mean": 1.5, "variance": 0.5, "min": 1, "max": 2,
+      "quantiles": {"p50": 1, "p90": 2, "p95": 2, "p99": 2},
+      "histogram": {"min": 1, "bucket_width": 0.5, "counts": [1, 1]}}}
+  }]
+}`
+
+func TestParseHistoryRecordUpgradesV1(t *testing.T) {
+	r, err := ParseHistoryRecord([]byte(v1RecordDoc))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.Version != SchemaVersion || r.Environment != testEnvironment() {
+		t.Fatalf("got version %d environment %+v", r.Version, r.Environment)
+	}
+	if !r.Workloads[0].Toolchain.Equal(Toolchain{"go": "go1.27.2"}) {
+		t.Fatalf("got toolchain %v", r.Workloads[0].Toolchain)
+	}
+	// The upgraded record compares against current records without a
+	// spurious toolchain warning.
+	current := testRecord(2, "537af8d3aabbccddee11223344556677889900aa", "ENG-31")
+	if c := CompareRecords("v1", r, "v2", current); !c.EnvMatch || len(c.ToolchainChanges) != 0 {
+		t.Fatalf("got env match %v toolchain changes %+v", c.EnvMatch, c.ToolchainChanges)
+	}
+
+	for name, doc := range map[string]string{
+		"v1 without toolchain":    strings.Replace(v1RecordDoc, `, "toolchain": "go1.27.2"`, ``, 1),
+		"v1 with v2 toolchain":    strings.Replace(v1RecordDoc, `"kind": "http",`, `"kind": "http", "toolchain": {"go": "go1.27.2"},`, 1),
+		"v2 with v1 toolchain":    strings.Replace(v1RecordDoc, `"version": 1`, `"version": 2`, 1),
+		"v1 with unknown member":  strings.Replace(v1RecordDoc, `"version": 1`, `"version": 1, "extra": 1`, 1),
+		"v1 with build kind type": strings.Replace(v1RecordDoc, `"kind": "http"`, `"kind": "rpc"`, 1),
+	} {
+		if _, err := ParseHistoryRecord([]byte(doc)); err == nil {
+			t.Errorf("%s: expected parse error", name)
+		}
 	}
 }
 
@@ -194,6 +248,7 @@ func FuzzParseHistoryRecord(f *testing.F) {
 		f.Fatal(err)
 	}
 	f.Add(valid)
+	f.Add([]byte(v1RecordDoc))
 	f.Add([]byte(`{}`))
 	f.Add([]byte(`null`))
 	f.Fuzz(func(t *testing.T, data []byte) {

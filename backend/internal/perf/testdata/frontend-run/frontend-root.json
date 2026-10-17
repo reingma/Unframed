@@ -1,0 +1,74 @@
+{
+  "version": 2,
+  "workload_id": "frontend-root",
+  "kind": "browser",
+  "started_at": "2026-10-17T05:54:24.013Z",
+  "finished_at": "2026-10-17T05:54:32.858Z",
+  "environment": {
+    "machine": "workstation-1",
+    "os": "linux",
+    "arch": "amd64",
+    "cpu": "Test CPU"
+  },
+  "toolchain": {
+    "node": "v26.11.1",
+    "chromium": "153.0.8010.12"
+  },
+  "samples": [
+    {
+      "metrics": {
+        "ttfb_ms": 10.5,
+        "fcp_ms": 48,
+        "lcp_ms": 48,
+        "html_bytes": 6032,
+        "js_bytes": 453357,
+        "css_bytes": 501
+      },
+      "status": 200
+    },
+    {
+      "metrics": {
+        "ttfb_ms": 20.599999999976717,
+        "fcp_ms": 52,
+        "lcp_ms": 52,
+        "html_bytes": 6032,
+        "js_bytes": 453357,
+        "css_bytes": 501
+      },
+      "status": 200
+    },
+    {
+      "metrics": {
+        "ttfb_ms": 8.5,
+        "fcp_ms": 44,
+        "lcp_ms": 44,
+        "html_bytes": 6032,
+        "js_bytes": 453357,
+        "css_bytes": 501
+      },
+      "status": 200
+    },
+    {
+      "metrics": {
+        "ttfb_ms": 11.800000000046566,
+        "fcp_ms": 40,
+        "lcp_ms": 40,
+        "html_bytes": 6032,
+        "js_bytes": 453357,
+        "css_bytes": 501
+      },
+      "status": 200
+    },
+    {
+      "metrics": {
+        "ttfb_ms": 31.2,
+        "fcp_ms": 80,
+        "html_bytes": 6032,
+        "js_bytes": 453357,
+        "css_bytes": 501
+      },
+      "status": 200,
+      "error": "no largest-contentful-paint"
+    }
+  ]
+}

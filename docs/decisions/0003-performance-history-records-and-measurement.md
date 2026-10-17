@@ -1,7 +1,7 @@
 # 0003 — Performance history records and measurement
 
 Status: accepted in ENG-29 planning (2026-10-15); backend machinery implemented
-under ENG-30, frontend measurements pending under ENG-31.
+under ENG-30; frontend measurements implemented under ENG-31.
 
 ## Context
 
@@ -26,9 +26,9 @@ enduring rationale.
 - Keep two artifact tiers. Raw run artifacts are ephemeral, gitignored and
   regenerable at a git state. Compressed history records are committed per
   merge to `main` under `perf/history/` and carry revision SHA, a
-  changelog/issue tag, an environment factor (opaque machine label plus
-  OS/arch/CPU/toolchain) and per-workload sufficient statistics (n, mean,
-  variance, quantiles, histogram).
+  changelog/issue tag, a host environment (opaque machine label plus
+  OS/arch/CPU) and per-workload toolchains and sufficient statistics (n,
+  mean, variance, quantiles, histogram).
 - The versioned JSON schema is stack-agnostic and consumable by non-Go
   producers; Go emit/parse code uses `encoding/json/v2` per repository
   policy. The shared design is proven on the Go backend first; the frontend
@@ -49,6 +49,12 @@ enduring rationale.
 - The canonical environment is the designated local machine recorded as the
   opaque label `workstation-1`; new machines join under their own labels.
 - Cross-machine comparison must be flagged, not silently pooled.
+- ENG-31 moved the toolchain from the record environment to each workload
+  (schema version 2). Backend, browser and build workloads run on the same
+  host with different toolchains (Go; Node and Chromium; Node), so one
+  record per merge holds all of them. A toolchain change is flagged only on
+  the workloads it affects. Version 1 records stay unchanged on disk and
+  are read as version 2.
 - Deltas with confidence intervals are the v1 attribution. Richer
   probabilistic modeling is deferred; stored sufficient statistics keep it
   possible without resampling.

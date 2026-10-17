@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "workloads": [
     {
       "id": "backend-healthcheck",
@@ -7,6 +7,17 @@
       "target": "http://127.0.0.1:8080/healthcheck",
       "rate": 50,
       "duration": "10s"
+    },
+    {
+      "id": "frontend-root",
+      "kind": "browser",
+      "target": "/",
+      "repetitions": 50
+    },
+    {
+      "id": "frontend-bundle",
+      "kind": "build",
+      "target": "frontend/.next"
     }
   ]
 }

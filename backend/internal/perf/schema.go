@@ -9,34 +9,38 @@ import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"fmt"
+	"maps"
 	"math"
+	"slices"
+	"strings"
 	"time"
 )
 
 // SchemaVersion is the current version of the registry, run-artifact and
 // history-record JSON formats. Bump it only for incompatible shape changes.
-const SchemaVersion = 1
+// Version 1 history records remain readable; see ParseHistoryRecord.
+const SchemaVersion = 2
 
 // Workload kinds in the registry.
 const (
 	KindHTTP    = "http"
 	KindBrowser = "browser"
+	KindBuild   = "build"
 )
 
-// Environment is the factor a run or record belongs to. Machine is an opaque
-// label, never a hostname, so records carry no identifying system data.
+// Environment is the host factor a run or record belongs to. Machine is an
+// opaque label, never a hostname, so records carry no identifying system
+// data. OS and Arch use Go's GOOS/GOARCH names for every producer.
 type Environment struct {
-	Machine   string `json:"machine"`
-	OS        string `json:"os"`
-	Arch      string `json:"arch"`
-	CPU       string `json:"cpu"`
-	Toolchain string `json:"toolchain"`
+	Machine string `json:"machine"`
+	OS      string `json:"os"`
+	Arch    string `json:"arch"`
+	CPU     string `json:"cpu"`
 }
 
 func (e Environment) validate() error {
 	for name, value := range map[string]string{
-		"machine": e.Machine, "os": e.OS, "arch": e.Arch,
-		"cpu": e.CPU, "toolchain": e.Toolchain,
+		"machine": e.Machine, "os": e.OS, "arch": e.Arch, "cpu": e.CPU,
 	} {
 		if value == "" {
 			return fmt.Errorf("environment field %q is empty", name)
@@ -49,6 +53,41 @@ func (e Environment) validate() error {
 // across different environments must be flagged, not silently pooled.
 func (e Environment) Equal(o Environment) bool {
 	return e == o
+}
+
+// Toolchain names the software versions that produced one workload's
+// measurements, keyed by component (for example "go", "node", "chromium").
+// It is per workload because producers differ: one record can hold Go and
+// browser workloads measured on the same host.
+type Toolchain map[string]string
+
+func (t Toolchain) validate() error {
+	if len(t) == 0 {
+		return fmt.Errorf("toolchain is empty")
+	}
+	for name, version := range t {
+		if !workloadIDPattern.MatchString(name) {
+			return fmt.Errorf("toolchain component %q must match %s", name, workloadIDPattern)
+		}
+		if version == "" {
+			return fmt.Errorf("toolchain component %q has an empty version", name)
+		}
+	}
+	return nil
+}
+
+// Equal reports whether two toolchains name the same components and versions.
+func (t Toolchain) Equal(o Toolchain) bool {
+	return maps.Equal(t, o)
+}
+
+// String renders the toolchain as sorted name=version pairs.
+func (t Toolchain) String() string {
+	pairs := make([]string, 0, len(t))
+	for _, name := range slices.Sorted(maps.Keys(t)) {
+		pairs = append(pairs, name+"="+t[name])
+	}
+	return strings.Join(pairs, " ")
 }
 
 // Sample is one measured observation in a raw run artifact. Metrics carries
@@ -70,6 +109,7 @@ type RunArtifact struct {
 	StartedAt   time.Time   `json:"started_at"`
 	FinishedAt  time.Time   `json:"finished_at"`
 	Environment Environment `json:"environment"`
+	Toolchain   Toolchain   `json:"toolchain"`
 	Samples     []Sample    `json:"samples"`
 }
 
@@ -95,11 +135,12 @@ type MetricStats struct {
 
 // WorkloadStats is the compressed form of one workload inside a record.
 type WorkloadStats struct {
-	ID      string                 `json:"id"`
-	Kind    string                 `json:"kind"`
-	Samples int                    `json:"samples"`
-	Errors  int                    `json:"errors"`
-	Metrics map[string]MetricStats `json:"metrics"`
+	ID        string                 `json:"id"`
+	Kind      string                 `json:"kind"`
+	Toolchain Toolchain              `json:"toolchain"`
+	Samples   int                    `json:"samples"`
+	Errors    int                    `json:"errors"`
+	Metrics   map[string]MetricStats `json:"metrics"`
 }
 
 // HistoryRecord is the committed, compressed summary of one measurement run.
@@ -115,7 +156,7 @@ type HistoryRecord struct {
 }
 
 func validKind(kind string) bool {
-	return kind == KindHTTP || kind == KindBrowser
+	return kind == KindHTTP || kind == KindBrowser || kind == KindBuild
 }
 
 func validSample(s Sample) error {
@@ -144,6 +185,9 @@ func (a *RunArtifact) validate() error {
 		return fmt.Errorf("finished_at is before started_at")
 	}
 	if err := a.Environment.validate(); err != nil {
+		return err
+	}
+	if err := a.Toolchain.validate(); err != nil {
 		return err
 	}
 	for i, s := range a.Samples {
@@ -254,6 +298,9 @@ func (r *HistoryRecord) validate() error {
 		case len(w.Metrics) == 0:
 			return fmt.Errorf("workload %q has no metrics", w.ID)
 		}
+		if err := w.Toolchain.validate(); err != nil {
+			return fmt.Errorf("workload %q: %w", w.ID, err)
+		}
 		seen[w.ID] = true
 		for name, m := range w.Metrics {
 			if err := m.validate(); err != nil {
@@ -264,10 +311,69 @@ func (r *HistoryRecord) validate() error {
 	return nil
 }
 
+// historyRecordV1 is the version 1 record shape: one record-level toolchain
+// string, which only the Go runner produced.
+type historyRecordV1 struct {
+	Version     int       `json:"version"`
+	Sequence    int       `json:"sequence"`
+	Revision    string    `json:"revision"`
+	Tag         string    `json:"tag"`
+	RecordedAt  time.Time `json:"recorded_at"`
+	Environment struct {
+		Environment `json:",inline"`
+		Toolchain   string `json:"toolchain"`
+	} `json:"environment"`
+	Workloads []struct {
+		ID      string                 `json:"id"`
+		Kind    string                 `json:"kind"`
+		Samples int                    `json:"samples"`
+		Errors  int                    `json:"errors"`
+		Metrics map[string]MetricStats `json:"metrics"`
+	} `json:"workloads"`
+}
+
+// upgrade converts a version 1 record to the current shape. Its toolchain
+// string was the Go toolchain, so it becomes each workload's "go" component.
+func (v historyRecordV1) upgrade() HistoryRecord {
+	r := HistoryRecord{
+		Version:     SchemaVersion,
+		Sequence:    v.Sequence,
+		Revision:    v.Revision,
+		Tag:         v.Tag,
+		RecordedAt:  v.RecordedAt,
+		Environment: v.Environment.Environment,
+	}
+	for _, w := range v.Workloads {
+		var toolchain Toolchain
+		if v.Environment.Toolchain != "" {
+			toolchain = Toolchain{"go": v.Environment.Toolchain}
+		}
+		r.Workloads = append(r.Workloads, WorkloadStats{
+			ID: w.ID, Kind: w.Kind, Toolchain: toolchain,
+			Samples: w.Samples, Errors: w.Errors, Metrics: w.Metrics,
+		})
+	}
+	return r
+}
+
 // ParseHistoryRecord decodes and validates a committed history record.
+// Version 1 records are upgraded in memory to the current shape, so
+// committed history is never rewritten.
 func ParseHistoryRecord(data []byte) (HistoryRecord, error) {
+	var header struct {
+		Version int `json:"version"`
+	}
+	if err := json.Unmarshal(data, &header); err != nil {
+		return HistoryRecord{}, err
+	}
 	var r HistoryRecord
-	if err := json.Unmarshal(data, &r, json.RejectUnknownMembers(true)); err != nil {
+	if header.Version == 1 {
+		var v1 historyRecordV1
+		if err := json.Unmarshal(data, &v1, json.RejectUnknownMembers(true)); err != nil {
+			return HistoryRecord{}, err
+		}
+		r = v1.upgrade()
+	} else if err := json.Unmarshal(data, &r, json.RejectUnknownMembers(true)); err != nil {
 		return HistoryRecord{}, err
 	}
 	if err := r.validate(); err != nil {

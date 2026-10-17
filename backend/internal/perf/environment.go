@@ -7,17 +7,23 @@ import (
 	"strings"
 )
 
-// DetectEnvironment captures the environment factor for a run. The machine
-// label is supplied by the operator and must be opaque (not a hostname);
-// OS, architecture, CPU and toolchain are detected.
+// DetectEnvironment captures the host factor for a run. The machine label is
+// supplied by the operator and must be opaque (not a hostname); OS,
+// architecture and CPU are detected.
 func DetectEnvironment(machine string) Environment {
 	return Environment{
-		Machine:   machine,
-		OS:        runtime.GOOS,
-		Arch:      runtime.GOARCH,
-		CPU:       cpuModel(),
-		Toolchain: runtime.Version(),
+		Machine: machine,
+		OS:      runtime.GOOS,
+		Arch:    runtime.GOARCH,
+		CPU:     cpuModel(),
 	}
+}
+
+// GoToolchain is the toolchain of Go-produced workloads: the Go toolchain
+// that built the measuring binary and, under the run procedure, the measured
+// server.
+func GoToolchain() Toolchain {
+	return Toolchain{"go": runtime.Version()}
 }
 
 func cpuModel() string {

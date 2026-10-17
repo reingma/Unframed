@@ -116,3 +116,58 @@ func TestLatestRunDir(t *testing.T) {
 		t.Fatalf("got %s", got)
 	}
 }
+
+// The fixture run holds artifacts as the Go and frontend runners write them:
+// one http, one browser (with a sample missing LCP) and one build workload
+// measured on the same host with different toolchains.
+func TestFrontendFixtureRunProducesRecord(t *testing.T) {
+	artifacts, err := LoadRunDir("testdata/frontend-run")
+	if err != nil {
+		t.Fatal(err)
+	}
+	record, err := BuildRecord(artifacts, testRev, "ENG-31", time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	if _, _, err := WriteRecord(dir, record); err != nil {
+		t.Fatal(err)
+	}
+	history, err := LoadHistory(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	byID := map[string]WorkloadStats{}
+	for _, w := range history[0].Workloads {
+		byID[w.ID] = w
+	}
+
+	browser := byID["frontend-root"]
+	if browser.Kind != KindBrowser || browser.Samples != 5 || browser.Errors != 1 ||
+		browser.Toolchain["node"] == "" || browser.Toolchain["chromium"] == "" {
+		t.Fatalf("browser workload %+v", browser)
+	}
+	for _, metric := range []string{"ttfb_ms", "fcp_ms", "lcp_ms"} {
+		if _, ok := browser.Metrics[metric]; !ok {
+			t.Errorf("browser workload lacks %s", metric)
+		}
+	}
+	if browser.Metrics["lcp_ms"].Values != 4 || browser.Metrics["fcp_ms"].Values != 5 {
+		t.Errorf("a missing metric must only shrink its own count: lcp %d fcp %d",
+			browser.Metrics["lcp_ms"].Values, browser.Metrics["fcp_ms"].Values)
+	}
+
+	build := byID["frontend-bundle"]
+	if build.Kind != KindBuild || build.Samples != 1 || build.Toolchain["node"] == "" {
+		t.Fatalf("build workload %+v", build)
+	}
+	for name, s := range build.Metrics {
+		if s.Values != 1 || s.Variance != 0 {
+			t.Errorf("build metric %s is not a single deterministic value: %+v", name, s)
+		}
+	}
+
+	if !byID["backend-healthcheck"].Toolchain.Equal(Toolchain{"go": "go1.27.2"}) {
+		t.Errorf("http workload toolchain %v", byID["backend-healthcheck"].Toolchain)
+	}
+}

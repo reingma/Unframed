@@ -1,0 +1,26 @@
+{
+  "version": 2,
+  "workload_id": "frontend-bundle",
+  "kind": "build",
+  "started_at": "2026-10-17T05:54:32.883Z",
+  "finished_at": "2026-10-17T05:54:32.916Z",
+  "environment": {
+    "machine": "workstation-1",
+    "os": "linux",
+    "arch": "amd64",
+    "cpu": "Test CPU"
+  },
+  "toolchain": {
+    "node": "v26.11.1"
+  },
+  "samples": [
+    {
+      "metrics": {
+        "js_bytes": 566346,
+        "js_gzip_bytes": 173404,
+        "css_bytes": 501,
+        "css_gzip_bytes": 321
+      }
+    }
+  ]
+}

@@ -72,6 +72,7 @@ func cmdRun(ctx context.Context, args []string) error {
 	fs := flag.NewFlagSet("run", flag.ContinueOnError)
 	registryPath := fs.String("registry", "perf/workloads.json", "workload registry file")
 	runsDir := fs.String("runs", "perf/runs", "raw artifact output root")
+	runDirFlag := fs.String("run", "", "run directory to write (default: new UTC timestamp under --runs)")
 	machine := fs.String("machine", "", "opaque machine label (or PERF_MACHINE)")
 	only := fs.String("only", "", "run a single workload id")
 	if err := fs.Parse(args); err != nil {
@@ -86,7 +87,10 @@ func cmdRun(ctx context.Context, args []string) error {
 		return err
 	}
 	env := perf.DetectEnvironment(label)
-	runDir := filepath.Join(*runsDir, time.Now().UTC().Format("20060102T150405"))
+	runDir := *runDirFlag
+	if runDir == "" {
+		runDir = filepath.Join(*runsDir, time.Now().UTC().Format("20060102T150405"))
+	}
 	ran := false
 	for _, w := range registry.Workloads {
 		if *only != "" && w.ID != *only {

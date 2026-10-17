@@ -47,12 +47,15 @@ code{background:#f4f4f4;padding:.1rem .3rem}
 		{"os", c.RecordA.Environment.OS, c.RecordB.Environment.OS},
 		{"arch", c.RecordA.Environment.Arch, c.RecordB.Environment.Arch},
 		{"cpu", c.RecordA.Environment.CPU, c.RecordB.Environment.CPU},
-		{"toolchain", c.RecordA.Environment.Toolchain, c.RecordB.Environment.Toolchain},
 	}
 	for _, r := range envRows {
 		fmt.Fprintf(w, "<tr><td>%s</td><td>%s</td><td>%s</td></tr>\n", r[0], esc(r[1]), esc(r[2]))
 	}
 	fmt.Fprint(w, "</table>\n")
+	for _, tc := range c.ToolchainChanges {
+		fmt.Fprintf(w, "<p class=\"warn\">Workload <code>%s</code> changed toolchain (A: <code>%s</code>, B: <code>%s</code>); its deltas include the toolchain effect.</p>\n",
+			esc(tc.WorkloadID), esc(tc.A.String()), esc(tc.B.String()))
+	}
 
 	fmt.Fprint(w, "<table><tr><th>workload</th><th>metric</th><th>n(A)</th><th>n(B)</th>"+
 		"<th>mean(A)</th><th>mean(B)</th><th>delta</th><th>95% CI</th><th>p95 delta</th></tr>\n")

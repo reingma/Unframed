@@ -1,0 +1,48 @@
+{
+  "version": 2,
+  "workload_id": "backend-healthcheck",
+  "kind": "http",
+  "started_at": "2026-10-17T05:54:42.545231552Z",
+  "finished_at": "2026-10-17T05:54:52.546486698Z",
+  "environment": {
+    "machine": "workstation-1",
+    "os": "linux",
+    "arch": "amd64",
+    "cpu": "Test CPU"
+  },
+  "toolchain": {
+    "go": "go1.27.2"
+  },
+  "samples": [
+    {
+      "metrics": {
+        "latency_ns": 823232
+      },
+      "status": 200
+    },
+    {
+      "metrics": {
+        "latency_ns": 414711
+      },
+      "status": 200
+    },
+    {
+      "metrics": {
+        "latency_ns": 1791845
+      },
+      "status": 200
+    },
+    {
+      "metrics": {
+        "latency_ns": 1560085
+      },
+      "status": 200
+    },
+    {
+      "metrics": {
+        "latency_ns": 317046
+      },
+      "status": 200
+    }
+  ]
+}

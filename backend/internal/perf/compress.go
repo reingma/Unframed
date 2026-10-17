@@ -15,10 +15,11 @@ import (
 // metric values — the attempt is real load — and are counted in Errors.
 func CompressArtifact(a RunArtifact) (WorkloadStats, error) {
 	ws := WorkloadStats{
-		ID:      a.WorkloadID,
-		Kind:    a.Kind,
-		Samples: len(a.Samples),
-		Metrics: map[string]MetricStats{},
+		ID:        a.WorkloadID,
+		Kind:      a.Kind,
+		Toolchain: a.Toolchain,
+		Samples:   len(a.Samples),
+		Metrics:   map[string]MetricStats{},
 	}
 	byMetric := map[string][]float64{}
 	for _, s := range a.Samples {
@@ -43,8 +44,9 @@ func CompressArtifact(a RunArtifact) (WorkloadStats, error) {
 }
 
 // BuildRecord compresses one run's artifacts into a history record. All
-// artifacts must share one environment factor; mixing machines inside a
-// record is rejected rather than pooled.
+// artifacts must share one host environment; mixing machines inside a record
+// is rejected rather than pooled. Each workload keeps its own toolchain, so
+// Go and browser producers can contribute to the same record.
 func BuildRecord(artifacts []RunArtifact, revision, tag string, now time.Time) (HistoryRecord, error) {
 	if len(artifacts) == 0 {
 		return HistoryRecord{}, fmt.Errorf("no artifacts to compress")

@@ -26,20 +26,30 @@ type MetricDelta struct {
 	BStats         MetricStats
 }
 
+// ToolchainChange records a workload measured with different toolchains in
+// the two records; its deltas mix code and toolchain effects.
+type ToolchainChange struct {
+	WorkloadID string
+	A          Toolchain
+	B          Toolchain
+}
+
 // Comparison is the analysis of two history records.
 type Comparison struct {
-	NameA    string
-	NameB    string
-	RecordA  HistoryRecord
-	RecordB  HistoryRecord
-	EnvMatch bool
-	Deltas   []MetricDelta
-	OnlyInA  []string
-	OnlyInB  []string
+	NameA            string
+	NameB            string
+	RecordA          HistoryRecord
+	RecordB          HistoryRecord
+	EnvMatch         bool
+	ToolchainChanges []ToolchainChange
+	Deltas           []MetricDelta
+	OnlyInA          []string
+	OnlyInB          []string
 }
 
 // CompareRecords computes per-workload, per-metric deltas B - A. Records from
-// different environments are flagged via EnvMatch; they are never pooled.
+// different host environments are flagged via EnvMatch and workloads whose
+// toolchain changed via ToolchainChanges; they are never pooled.
 func CompareRecords(nameA string, a HistoryRecord, nameB string, b HistoryRecord) Comparison {
 	c := Comparison{
 		NameA:    nameA,
@@ -59,6 +69,9 @@ func CompareRecords(nameA string, a HistoryRecord, nameB string, b HistoryRecord
 		if !ok {
 			c.OnlyInA = append(c.OnlyInA, wa.ID)
 			continue
+		}
+		if !wa.Toolchain.Equal(wb.Toolchain) {
+			c.ToolchainChanges = append(c.ToolchainChanges, ToolchainChange{WorkloadID: wa.ID, A: wa.Toolchain, B: wb.Toolchain})
 		}
 		for metric, sa := range wa.Metrics {
 			sb, ok := wb.Metrics[metric]
@@ -105,6 +118,9 @@ func CompareRecords(nameA string, a HistoryRecord, nameB string, b HistoryRecord
 	slices.SortFunc(c.Deltas, func(x, y MetricDelta) int {
 		return strings.Compare(x.WorkloadID+x.Metric, y.WorkloadID+y.Metric)
 	})
+	slices.SortFunc(c.ToolchainChanges, func(x, y ToolchainChange) int {
+		return strings.Compare(x.WorkloadID, y.WorkloadID)
+	})
 	slices.Sort(c.OnlyInA)
 	slices.Sort(c.OnlyInB)
 	return c
@@ -119,6 +135,10 @@ func (c Comparison) WriteText(w io.Writer) error {
 		fmt.Fprintln(&sb, "WARNING: records come from different environments; deltas are not directly comparable.")
 		fmt.Fprintf(&sb, "  A environment: %+v\n", c.RecordA.Environment)
 		fmt.Fprintf(&sb, "  B environment: %+v\n", c.RecordB.Environment)
+	}
+	for _, tc := range c.ToolchainChanges {
+		fmt.Fprintf(&sb, "WARNING: workload %s changed toolchain; its deltas include the toolchain effect.\n", tc.WorkloadID)
+		fmt.Fprintf(&sb, "  A toolchain: %s\n  B toolchain: %s\n", tc.A, tc.B)
 	}
 	fmt.Fprintln(&sb)
 	fmt.Fprintf(&sb, "%-24s %-14s %8s %8s %14s %14s %14s %26s\n",

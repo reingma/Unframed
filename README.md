@@ -87,7 +87,9 @@ The integration suite manages its own compiled Go server and two production
 Next.js servers. Keep the ports declared in
 [frontend/playwright.config.ts](frontend/playwright.config.ts) unused; it does not
 reuse development servers. Failure traces are retained and generated artifacts
-are ignored by Git.
+are ignored by Git. The frontend performance runner uses its own ports, declared in
+[frontend/playwright.perf.config.ts](frontend/playwright.perf.config.ts); see
+[perf/README.md](perf/README.md).
 
 For native Go commands, first follow the
 [JSON API and build requirements](AGENTS.md#repository-preferences-and-boundaries).

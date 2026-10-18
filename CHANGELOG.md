@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Content tree scanning: a `content.Source` interface with a confined
+  filesystem implementation, slug-form names with derived titles and URLs,
+  typed TOML `.configuration` files and `+++` frontmatter with per-field
+  errors and a theme cascading root → directory → article, and a validated
+  manifest with the navigation tree, an article index including drafts, a
+  separate asset list, and per-item validation errors. The
+  [authoring schema](docs/specs/content-authoring.md) documents the format.
 - Versioned performance history machinery: a declarative workload registry
   (`perf/workloads.json`), a vegeta-based backend runner producing gitignored
   raw run artifacts, compression into committed per-merge records under

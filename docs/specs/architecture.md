@@ -18,6 +18,16 @@ and future rendering boundary.
   `http.HandlerFunc` signatures.
 - [backend/internal/health](../../backend/internal/health/handler.go) implements
   the liveness endpoint.
+- [backend/internal/content](../../backend/internal/content/manifest.go) owns the
+  content domain types: the `Source` interface, names, configuration and the
+  manifest. `FSSource` reads a local directory confined with `os.Root`.
+  [content/scan](../../backend/internal/content/scan/scan.go) exports only `Scan`,
+  which reads a `Source` into a validated manifest: the public navigation tree,
+  an article index including drafts, each node's typed configuration and
+  resolved theme, the separate list of assets and per-item validation errors. The
+  [authoring schema](content-authoring.md) owns the format and
+  [ADR 0004](../decisions/0004-content-source-and-authoring-format.md) its rationale.
+  The server does not call it yet.
 - [backend/internal/perf](../../backend/internal/perf) and
   [backend/cmd/perf](../../backend/cmd/perf) own the performance measurement
   machinery: registry parsing, the vegeta-based HTTP runner, compression of
@@ -80,9 +90,9 @@ available presentation and displays the response. Connection failures, timeouts,
 non-success HTTP responses, malformed JSON and schema-invalid data produce the
 unavailable presentation, not healthy data.
 
-Content ingestion, article rendering, drafts and publishing, appearance
-configuration, S3 or other content providers, math, authentication and database
-storage are not implemented. The API has no generic response envelope,
+Content scanning is not exposed over HTTP. Markdown rendering, versioned
+documents, publishing events, appearance configuration, S3 or other content
+providers, math, authentication and database storage are not implemented. The API has no generic response envelope,
 GraphQL/gRPC or code generation. Future article and binary-response contracts
 remain undecided; see ADR 0001 rather than treating them as implemented features.
 
@@ -94,6 +104,7 @@ instructions. [Makefile](../../Makefile) delegates to native commands, and
 examples. There are no deployment jobs, cloud credentials or coverage-percentage gates.
 
 Behavior is exercised by the [health](../../backend/internal/health/handler_test.go),
+[content](../../backend/internal/content),
 [router](../../backend/internal/router/router_test.go),
 [communication](../../frontend/src/lib/backend.test.ts),
 [presentation](../../frontend/src/app/health-status.test.tsx) and

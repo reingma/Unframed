@@ -4,6 +4,7 @@ go 1.27.2
 
 require (
 	github.com/julienschmidt/httprouter v1.3.0
+	github.com/pelletier/go-toml/v2 v2.3.1
 	github.com/tsenart/vegeta/v12 v12.12.0
 )
 

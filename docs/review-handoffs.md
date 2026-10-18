@@ -52,8 +52,9 @@ read files, so the requester gathers everything:
    where Gabriel's request or authorization is recorded, base and head SHAs, the
    files above, artifacts that do not exist, relevant architecture, ADR and
    deployment facts, and Gabriel's applicable feedback quoted from PR threads or
-   issue comments. Add the baseline, workload and environment for performance,
-   and exposure, trust boundaries and triggers for security. Write missing facts as gaps.
+   issue comments. Include the `perf/history/` record the PR appends. Add the
+   baseline, workload and environment for performance, and exposure, trust
+   boundaries and triggers for security. Write missing facts as gaps.
 4. Ask for each reviewer by name, for example "run the security-reviewer
    subagent on `.review/12-870f6c4/intake.md`". Reviewers may run in parallel.
 5. Relay each report unchanged. The implementer fixes actionable findings within

@@ -84,6 +84,43 @@ writes the next sequenced file under `perf/history/`. It refuses a run whose
 artifacts come from different hosts. Commit the record with the merge it
 measures.
 
+## The merge gate
+
+Every pull request must append at least one record under `perf/history/`, and
+the newest record must be bound to what merges. The CI `perf-history` job runs
+`perf gate --base <sha> --head <sha>` on `pull_request`; `make perf-gate`
+(`PERF_BASE`, `PERF_HEAD`) runs it locally. The gate enforces:
+
+- Committed records are immutable: the diff may only add files under
+  `perf/history/`, never modify or delete existing ones.
+- At least one `NNNN-<sha8>.json` record is added, and the head history
+  satisfies the same name/sequence/parse rules as `perf validate`.
+- The newest record's `revision` names the measured commit. Because a commit
+  cannot embed its own SHA, the check is content equality: everything outside
+  `perf/history/` must be identical between `revision` and head — after the
+  measured commit, only record appends are allowed. A record therefore lands
+  in its own commit (or commits) on top of the measured head, and **any push
+  after measuring** — review feedback, rebase, typo fix — requires re-running
+  `make perf-run` and `make perf-record` and appending a fresh record.
+- `environment.machine != "workstation-1"` passes with a visible
+  non-canonical warning.
+
+The gate checks presence and binding only; it cannot produce measurements and
+sets no performance thresholds.
+
+To satisfy it: finish the change, then on the designated machine run
+`make perf-run` and `make perf-record TAG=ENG-<n>` at the final head, commit
+the record file and push. A backfill of an old merge is appended the same way
+with `compress --revision <sha>`; the newest record still must bind to this
+merge's head, so a PR may not carry only a backfill.
+
+Work authored somewhere other than the designated machine — a cloud session,
+another host — cannot produce a canonical record. The handoff is: push the
+branch, pull it on `workstation-1`, run `make perf-run` and
+`make perf-record TAG=ENG-<n>` there, commit and push. A non-canonical record
+is accepted but warned, so the drift stays visible in history and `compare`
+flags it.
+
 ## Analysis
 
 ```sh

@@ -120,9 +120,12 @@ analyzes supplied performance artifacts against the diff for requested reviews
 and runs nothing. Committed performance history lives under
 [perf/history/](../../perf/README.md): one compressed record per merge to
 `main`, produced by the local backend and frontend runners on the designated
-machine and validated for shape by `make check`. There is no CI performance
-job, per-component frontend measurement or performance gate; raw run
-artifacts are local-only.
+machine and validated for shape by `make check`. A `pull_request` CI job runs
+the `perf gate` presence-and-binding check: the diff must append a record,
+committed records are immutable, and the newest record's measured revision
+must match the merged content outside `perf/history/`. The gate measures
+nothing — CI never produces records; there is no performance-threshold gate
+and no per-component frontend measurement; raw run artifacts are local-only.
 The [security review skill](../../.agents/skills/security-review/SKILL.md) reviews
 changed code against specific security practices in its exposure and execution
 context for requested reviews, using only CI/CD artifacts. CI produces no

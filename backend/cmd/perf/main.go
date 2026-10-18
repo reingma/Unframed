@@ -32,7 +32,7 @@ func main() {
 
 func run(ctx context.Context, args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("usage: perf <run|compress|compare|report|validate> [flags]")
+		return fmt.Errorf("usage: perf <run|compress|compare|report|validate|gate> [flags]")
 	}
 	switch args[0] {
 	case "run":
@@ -45,6 +45,8 @@ func run(ctx context.Context, args []string) error {
 		return cmdReport(ctx, args[1:])
 	case "validate":
 		return cmdValidate(ctx, args[1:])
+	case "gate":
+		return cmdGate(ctx, args[1:])
 	default:
 		return fmt.Errorf("unknown subcommand %q", args[0])
 	}
@@ -298,5 +300,36 @@ func cmdValidate(_ context.Context, args []string) error {
 		return err
 	}
 	slog.Info("validation passed", "workloads", len(registry.Workloads), "records", len(records))
+	return nil
+}
+
+// cmdGate enforces the per-merge record contract on a change: used by the
+// pull_request CI check and locally via `make perf-gate`.
+func cmdGate(ctx context.Context, args []string) error {
+	fs := flag.NewFlagSet("gate", flag.ContinueOnError)
+	repoDir := fs.String("repo", ".", "repository root holding the git history")
+	historyDir := fs.String("history", "perf/history", "committed record directory")
+	base := fs.String("base", "", "base revision of the change (required)")
+	head := fs.String("head", "", "head revision of the change (required)")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if *base == "" || *head == "" {
+		return fmt.Errorf("--base and --head are required")
+	}
+	res, err := perf.CheckGate(ctx, *repoDir, *historyDir, *base, *head)
+	if err != nil {
+		return err
+	}
+	for _, w := range res.Warnings {
+		slog.Warn("perf gate", "warning", w)
+	}
+	for _, f := range res.Failures {
+		slog.Error("perf gate", "failure", f)
+	}
+	if !res.OK() {
+		return fmt.Errorf("perf gate: %d invariant failure(s)", len(res.Failures))
+	}
+	slog.Info("perf gate passed", "added", res.Added, "newest", res.Newest)
 	return nil
 }

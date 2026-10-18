@@ -1,4 +1,4 @@
-.PHONY: setup dev-backend dev-frontend fmt check check-backend check-frontend check-skills check-perf test test-backend test-frontend test-skills build build-backend build-frontend test-e2e perf-build perf-run perf-run-frontend perf-record perf-compare perf-report
+.PHONY: setup dev-backend dev-frontend fmt check check-backend check-frontend check-skills check-perf test test-backend test-frontend test-skills build build-backend build-frontend test-e2e perf-build perf-run perf-run-frontend perf-record perf-compare perf-report perf-gate
 
 GO_SKILL_FILES := $(wildcard .agents/skills/go-engineering/assets/*.go)
 
@@ -80,3 +80,13 @@ perf-compare: perf-build
 
 perf-report: perf-build
 	backend/bin/perf report --out perf/reports/comparison.html
+
+ifndef PERF_BASE
+PERF_BASE := origin/main
+endif
+ifndef PERF_HEAD
+PERF_HEAD := HEAD
+endif
+
+perf-gate: perf-build
+	backend/bin/perf gate --base $(PERF_BASE) --head $(PERF_HEAD)

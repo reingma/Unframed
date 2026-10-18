@@ -44,6 +44,9 @@
   acceptance satisfied, relevant checks passing, documentation updated, human
   review complete, and human merge. Finish and record required operational
   activation or post-merge verification before closing the issue.
+- Every merge to `main` must append a `perf/history/` record measured at the
+  merge head on the designated machine; a `pull_request` CI check enforces it.
+  The procedure lives in [perf/README.md](perf/README.md).
 - Keep edits minimal and follow surrounding conventions. Reuse existing tooling;
   do not create frameworks or abstractions without a concrete need.
 - Fix failed checks and actionable review feedback within scope. Reply to review

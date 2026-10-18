@@ -1,4 +1,4 @@
-package content
+package scan
 
 import (
 	"bytes"
@@ -8,8 +8,12 @@ import (
 	"fmt"
 	"log/slog"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
+
+	"github.com/reingma/Unframed/backend/internal/content"
+	"github.com/reingma/Unframed/backend/internal/content/contenttest"
 )
 
 func quietLogger() *slog.Logger { return slog.New(slog.DiscardHandler) }
@@ -28,6 +32,8 @@ var validTree = map[string]string{
 	"Essays/Zeta.md":                                  "",
 	"Essays/alpha.md":                                 "",
 	"Ideas/Upcoming.draft.md":                         "secret",
+	"Ideas/cover.png":                                 "png",
+	"favicon.ico":                                     "ico",
 }
 
 // navEntry is a stable projection of the nav tree for comparisons.
@@ -37,7 +43,7 @@ type navEntry struct {
 	Index      string
 }
 
-func project(node *Node) navEntry {
+func project(node *content.Node) navEntry {
 	entry := navEntry{URL: node.URLPath, Title: node.Title}
 	if node.Index != nil {
 		entry.Index = node.Index.SourcePath
@@ -49,7 +55,7 @@ func project(node *Node) navEntry {
 }
 
 func TestScanValidTree(t *testing.T) {
-	for name, source := range sourceImplementations(t, validTree) {
+	for name, source := range contenttest.Sources(t, validTree) {
 		t.Run(name, func(t *testing.T) {
 			manifest, err := Scan(context.Background(), source, quietLogger())
 			if err != nil {
@@ -76,7 +82,19 @@ func TestScanValidTree(t *testing.T) {
 				t.Fatalf("nav tree\n got %+v\nwant %+v", got, want)
 			}
 
-			articles := map[string]*Node{}
+			var assets []string
+			for _, asset := range manifest.Assets {
+				assets = append(assets, asset.Path)
+			}
+			wantAssets := []string{"Ideas/cover.png", "Mathematics/Probability/figure.png", "favicon.ico"}
+			if !slices.Equal(assets, wantAssets) {
+				t.Fatalf("assets = %v, want %v", assets, wantAssets)
+			}
+			if asset := manifest.Assets[2]; asset.Size != 3 || asset.ModTime.IsZero() {
+				t.Fatalf("asset metadata = %+v", asset)
+			}
+
+			articles := map[string]*content.Node{}
 			for _, article := range manifest.Articles {
 				articles[article.SourcePath] = article
 			}
@@ -84,7 +102,7 @@ func TestScanValidTree(t *testing.T) {
 				t.Fatalf("article index has %d entries: %v", len(articles), articles)
 			}
 			martingales := articles["Mathematics/Probability/On-Martingales.md"]
-			wantConfig := Config{"title": "On Martingales and Stopping", "theme": map[string]any{"accent": "green", "font": "mono"}}
+			wantConfig := content.Config{"title": "On Martingales and Stopping", "theme": map[string]any{"accent": "green", "font": "mono"}}
 			if !reflect.DeepEqual(martingales.Config, wantConfig) {
 				t.Fatalf("resolved config = %#v, want %#v", martingales.Config, wantConfig)
 			}
@@ -104,12 +122,12 @@ func TestScanValidTree(t *testing.T) {
 }
 
 func TestScanNeverListsDrafts(t *testing.T) {
-	manifest, err := Scan(context.Background(), memSource(validTree), quietLogger())
+	manifest, err := Scan(context.Background(), contenttest.MemSource(validTree), quietLogger())
 	if err != nil {
 		t.Fatal(err)
 	}
-	var walk func(*Node)
-	walk = func(node *Node) {
+	var walk func(*content.Node)
+	walk = func(node *content.Node) {
 		if node.Draft || (node.Index != nil && node.Index.Draft) {
 			t.Fatalf("draft %s is in the nav tree", node.SourcePath)
 		}
@@ -142,26 +160,30 @@ func TestScanPerItemErrors(t *testing.T) {
 		"Section/Twin.draft.md":     "drafts collide separately",
 		"Section/twin.draft.md":     "",
 		"Section/Twin.md":           "a draft and its published article do not collide",
+		"Section/photo.jpg":         "kept with its directory",
+		"Bad_Directory/photo.jpg":   "excluded with its directory",
+		"Bad-Config/photo.jpg":      "excluded with its directory",
+		"Shared/photo.jpg":          "excluded with its directory",
 	}
-	manifest, err := Scan(context.Background(), memSource(tree), quietLogger())
+	manifest, err := Scan(context.Background(), contenttest.MemSource(tree), quietLogger())
 	if err != nil {
 		t.Fatal(err)
 	}
 	want := map[string]error{
-		"Bad_Directory":             ErrInvalidName,
-		"Bad-Config/.configuration": ErrInvalidConfig,
-		"Wrong-Type/.configuration": ErrInvalidConfig,
-		"Wrong Name.md":             ErrInvalidName,
-		"Unterminated.md":           ErrInvalidFrontmatter,
-		"Bad-Frontmatter.md":        ErrInvalidConfig,
-		"Bad-Slug.md":               ErrInvalidConfig,
+		"Bad_Directory":             content.ErrInvalidName,
+		"Bad-Config/.configuration": content.ErrInvalidConfig,
+		"Wrong-Type/.configuration": content.ErrInvalidConfig,
+		"Wrong Name.md":             content.ErrInvalidName,
+		"Unterminated.md":           content.ErrInvalidFrontmatter,
+		"Bad-Frontmatter.md":        content.ErrInvalidConfig,
+		"Bad-Slug.md":               content.ErrInvalidConfig,
 		"Twin.md":                   ErrSlugCollision,
 		"twin.md":                   ErrSlugCollision,
 		"Shared.md":                 ErrSlugCollision,
 		"Shared":                    ErrSlugCollision,
 		"Valid.md":                  ErrSlugCollision,
 		"Override.md":               ErrSlugCollision,
-		"Section/index.md":          ErrInvalidConfig,
+		"Section/index.md":          content.ErrInvalidConfig,
 		"Section/Twin.draft.md":     ErrSlugCollision,
 		"Section/twin.draft.md":     ErrSlugCollision,
 	}
@@ -189,6 +211,9 @@ func TestScanPerItemErrors(t *testing.T) {
 			t.Errorf("invalid %s is in the article index", itemPath)
 		}
 	}
+	if len(manifest.Assets) != 1 || manifest.Assets[0].Path != "Section/photo.jpg" {
+		t.Errorf("assets = %+v, want only Section/photo.jpg", manifest.Assets)
+	}
 	if !indexed["Section/Kept.md"] || !indexed["Section/Twin.md"] {
 		t.Errorf("valid siblings were excluded: %v", indexed)
 	}
@@ -206,7 +231,7 @@ func TestScanFatalRootConfig(t *testing.T) {
 		"root order":  ptr("order = 1\n"),
 	} {
 		t.Run(name, func(t *testing.T) {
-			tree := memSource{"Article.md": "valid"}
+			tree := contenttest.MemSource{"Article.md": "valid"}
 			if root != nil {
 				tree[".configuration"] = *root
 			}
@@ -222,7 +247,7 @@ func ptr(s string) *string { return &s }
 
 // failingSource fails reads of one path, or every call once ctx is canceled.
 type failingSource struct {
-	memSource
+	contenttest.MemSource
 	fail string
 }
 
@@ -230,11 +255,11 @@ func (f failingSource) ReadFile(ctx context.Context, name string) ([]byte, error
 	if name == f.fail {
 		return nil, errors.New("permission denied")
 	}
-	return f.memSource.ReadFile(ctx, name)
+	return f.MemSource.ReadFile(ctx, name)
 }
 
 func TestScanUnreadableAndCanceled(t *testing.T) {
-	source := failingSource{memSource: memSource(validTree), fail: "Essays/Zeta.md"}
+	source := failingSource{MemSource: contenttest.MemSource(validTree), fail: "Essays/Zeta.md"}
 	manifest, err := Scan(context.Background(), source, quietLogger())
 	if err != nil {
 		t.Fatal(err)
@@ -250,7 +275,7 @@ func TestScanUnreadableAndCanceled(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	if manifest, err := Scan(ctx, memSource(validTree), quietLogger()); !errors.Is(err, context.Canceled) || manifest != nil {
+	if manifest, err := Scan(ctx, contenttest.MemSource(validTree), quietLogger()); !errors.Is(err, context.Canceled) || manifest != nil {
 		t.Fatalf("canceled scan = %v, %v", manifest, err)
 	}
 }
@@ -272,7 +297,7 @@ func TestScanLogsCorrelatedSummary(t *testing.T) {
 	var buf bytes.Buffer
 	logger := slog.New(traceHandler{slog.NewJSONHandler(&buf, nil)})
 	ctx := context.WithValue(context.Background(), traceKey{}, "trace-34")
-	tree := memSource{".configuration": "", "Valid.md": "ok", "Bad_Name.md": "", "Secret.md": "+++\ntoken = \"do-not-log\"\n+++\n"}
+	tree := contenttest.MemSource{".configuration": "", "Valid.md": "ok", "Bad_Name.md": "", "Secret.md": "+++\ntoken = \"do-not-log\"\n+++\n"}
 	if _, err := Scan(ctx, tree, logger); err != nil {
 		t.Fatal(err)
 	}
@@ -290,7 +315,7 @@ func TestScanLogsCorrelatedSummary(t *testing.T) {
 
 // TestScanDeterministic checks that listing order does not change the manifest.
 func TestScanDeterministic(t *testing.T) {
-	render := func(source Source) string {
+	render := func(source content.Source) string {
 		manifest, err := Scan(context.Background(), source, quietLogger())
 		if err != nil {
 			t.Fatal(err)
@@ -302,9 +327,9 @@ func TestScanDeterministic(t *testing.T) {
 		fmt.Fprintf(&b, "%+v %v", project(manifest.Root), manifest.Errors)
 		return b.String()
 	}
-	want := render(newFSSource(t, validTree))
+	want := render(contenttest.NewFS(t, validTree))
 	for range 20 {
-		if got := render(memSource(validTree)); got != want {
+		if got := render(contenttest.MemSource(validTree)); got != want {
 			t.Fatalf("manifest differs between sources or listing orders\n got %s\nwant %s", got, want)
 		}
 	}

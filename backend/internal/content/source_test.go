@@ -1,4 +1,4 @@
-package content
+package content_test
 
 import (
 	"context"
@@ -9,65 +9,12 @@ import (
 	"path/filepath"
 	"slices"
 	"testing"
-	"time"
+
+	"github.com/reingma/Unframed/backend/internal/content"
+	"github.com/reingma/Unframed/backend/internal/content/contenttest"
 )
 
-// memSource is an in-memory Source for scanner tests. It applies the same
-// content-path contract as FSSource, verified by TestSourceContract.
-type memSource map[string]string
-
-func (m memSource) Files(ctx context.Context) ([]File, error) {
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
-	var files []File
-	for name, data := range m {
-		if isContentPath(name) {
-			files = append(files, File{Path: name, Size: int64(len(data)), ModTime: time.Unix(0, 0)})
-		}
-	}
-	return files, nil
-}
-
-func (m memSource) ReadFile(ctx context.Context, name string) ([]byte, error) {
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
-	if !isContentPath(name) {
-		return nil, ErrInvalidPath
-	}
-	data, ok := m[name]
-	if !ok {
-		return nil, fs.ErrNotExist
-	}
-	return []byte(data), nil
-}
-
-func newFSSource(t testing.TB, files map[string]string) *FSSource {
-	t.Helper()
-	dir := t.TempDir()
-	for name, data := range files {
-		target := filepath.Join(dir, filepath.FromSlash(name))
-		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(target, []byte(data), 0o644); err != nil {
-			t.Fatal(err)
-		}
-	}
-	source, err := OpenFS(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = source.Close() })
-	return source
-}
-
-func sourceImplementations(t *testing.T, files map[string]string) map[string]Source {
-	return map[string]Source{"fs": newFSSource(t, files), "memory": memSource(files)}
-}
-
-// TestSourceContract runs the Source contract against every implementation.
+// TestSourceContract runs the content.Source contract against every implementation.
 func TestSourceContract(t *testing.T) {
 	files := map[string]string{
 		".configuration":            "title = \"Site\"\n",
@@ -81,7 +28,7 @@ func TestSourceContract(t *testing.T) {
 		"Math/Drafts/Idea.draft.md": "draft",
 	}
 	want := []string{".configuration", "Math/.configuration", "Math/Drafts/Idea.draft.md", "Math/On-Martingales.md", "Math/figure.png"}
-	for name, source := range sourceImplementations(t, files) {
+	for name, source := range contenttest.Sources(t, files) {
 		t.Run(name, func(t *testing.T) {
 			ctx := context.Background()
 			listed, err := source.Files(ctx)
@@ -105,8 +52,8 @@ func TestSourceContract(t *testing.T) {
 				t.Fatalf("missing file = %v; want fs.ErrNotExist", err)
 			}
 			for _, name := range []string{"../escape", "/etc/passwd", "Math//On-Martingales.md", "Math/../.git/config", ".git/config", "Math/.DS_Store", ".", ""} {
-				if _, err := source.ReadFile(ctx, name); !errors.Is(err, ErrInvalidPath) {
-					t.Errorf("ReadFile(%q) = %v; want ErrInvalidPath", name, err)
+				if _, err := source.ReadFile(ctx, name); !errors.Is(err, content.ErrInvalidPath) {
+					t.Errorf("ReadFile(%q) = %v; want content.ErrInvalidPath", name, err)
 				}
 			}
 			canceled, cancel := context.WithCancel(ctx)
@@ -126,8 +73,7 @@ func TestFSSourceSymlinks(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(outside, "secret.md"), []byte("secret"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	source := newFSSource(t, map[string]string{".configuration": "", "Real.md": "real"})
-	dir := source.root.Name()
+	dir := contenttest.WriteTree(t, map[string]string{".configuration": "", "Real.md": "real"})
 	for link, target := range map[string]string{
 		"Escape.md":  filepath.Join(outside, "secret.md"),
 		"Inside.md":  filepath.Join(dir, "Real.md"),
@@ -137,6 +83,7 @@ func TestFSSourceSymlinks(t *testing.T) {
 			t.Skipf("symlinks unsupported: %v", err)
 		}
 	}
+	source := contenttest.OpenFS(t, dir)
 	listed, err := source.Files(context.Background())
 	if err != nil {
 		t.Fatal(err)
@@ -154,7 +101,7 @@ func TestFSSourceSymlinks(t *testing.T) {
 }
 
 func TestOpenFSMissingRoot(t *testing.T) {
-	if _, err := OpenFS(filepath.Join(t.TempDir(), "missing")); !errors.Is(err, fs.ErrNotExist) {
+	if _, err := content.OpenFS(filepath.Join(t.TempDir(), "missing")); !errors.Is(err, fs.ErrNotExist) {
 		t.Fatalf("OpenFS(missing) = %v", err)
 	}
 }

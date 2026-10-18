@@ -18,11 +18,13 @@ and future rendering boundary.
   `http.HandlerFunc` signatures.
 - [backend/internal/health](../../backend/internal/health/handler.go) implements
   the liveness endpoint.
-- [backend/internal/content](../../backend/internal/content/manifest.go) scans a
-  content tree through the `Source` interface into a validated manifest: the
-  public navigation tree, an article index including drafts, resolved
-  configuration and per-item validation errors. `FSSource` reads a local
-  directory confined with `os.Root`. The
+- [backend/internal/content](../../backend/internal/content/manifest.go) owns the
+  content domain types: the `Source` interface, names, configuration and the
+  manifest. `FSSource` reads a local directory confined with `os.Root`.
+  [content/scan](../../backend/internal/content/scan/scan.go) exports only `Scan`,
+  which reads a `Source` into a validated manifest: the public navigation tree,
+  an article index including drafts, resolved configuration, the separate list
+  of assets and per-item validation errors. The
   [authoring schema](content-authoring.md) owns the format and
   [ADR 0004](../decisions/0004-content-source-and-authoring-format.md) its rationale.
   The server does not call it yet.

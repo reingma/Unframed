@@ -30,8 +30,9 @@ trailing or repeated hyphens are invalid.
 
 Dot-prefixed files and directories, such as `.git`, are ignored, except
 `.configuration` files. Symbolic links and other non-regular files are
-ignored. Files that are not `.md` are not indexed; asset handling is not
-implemented yet.
+ignored. Other files that are not `.md` are assets. The manifest lists them
+separately from the navigation tree, at their tree path. Assets inside an
+excluded directory are excluded with it.
 
 ## Configuration
 

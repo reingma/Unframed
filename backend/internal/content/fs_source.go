@@ -45,7 +45,7 @@ func (s *FSSource) Files(ctx context.Context) ([]File, error) {
 			}
 			return nil
 		}
-		if !entry.Type().IsRegular() || !isContentPath(name) {
+		if !entry.Type().IsRegular() || !IsContentPath(name) {
 			return nil
 		}
 		info, err := entry.Info()
@@ -65,7 +65,7 @@ func (s *FSSource) ReadFile(ctx context.Context, name string) ([]byte, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	if !isContentPath(name) {
+	if !IsContentPath(name) {
 		return nil, fmt.Errorf("%w: %q", ErrInvalidPath, name)
 	}
 	info, err := s.root.Lstat(name)

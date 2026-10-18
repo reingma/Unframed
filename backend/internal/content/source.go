@@ -12,8 +12,8 @@ import (
 // ErrInvalidPath reports a path that is not a content path of a Source.
 var ErrInvalidPath = errors.New("invalid content path")
 
-// configurationFile is the per-directory configuration file name.
-const configurationFile = ".configuration"
+// ConfigurationFile is the root and directory configuration file name.
+const ConfigurationFile = ".configuration"
 
 // File describes one regular file in a content tree.
 type File struct {
@@ -41,14 +41,15 @@ type Source interface {
 	ReadFile(ctx context.Context, name string) ([]byte, error)
 }
 
-// isContentPath reports whether name is a valid path whose segments are not
-// hidden, except for a final ".configuration" segment.
-func isContentPath(name string) bool {
+// IsContentPath reports whether name is a content path of a Source: a valid
+// io/fs path whose segments are not hidden, except for a final
+// ".configuration" segment.
+func IsContentPath(name string) bool {
 	if name == "." || !fs.ValidPath(name) {
 		return false
 	}
 	dir, base := path.Split(name)
-	if strings.HasPrefix(base, ".") && base != configurationFile {
+	if strings.HasPrefix(base, ".") && base != ConfigurationFile {
 		return false
 	}
 	for segment := range strings.SplitSeq(strings.TrimSuffix(dir, "/"), "/") {

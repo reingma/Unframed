@@ -1,9 +1,12 @@
-package content
+package scan
 
 import (
 	"context"
 	"fmt"
 	"testing"
+
+	"github.com/reingma/Unframed/backend/internal/content"
+	"github.com/reingma/Unframed/backend/internal/content/contenttest"
 )
 
 // BenchmarkScan scans a generated tree of 20 directories with 50 articles
@@ -17,7 +20,7 @@ func BenchmarkScan(b *testing.B) {
 			files[fmt.Sprintf("%s/Article-%02d.md", dir, a)] = "+++\ntitle = \"An article\"\n[math]\nengine = \"katex\"\n+++\n# Heading\n\nBody text.\n"
 		}
 	}
-	for name, source := range map[string]Source{"fs": newFSSource(b, files), "memory": memSource(files)} {
+	for name, source := range map[string]content.Source{"fs": contenttest.NewFS(b, files), "memory": contenttest.MemSource(files)} {
 		b.Run(name, func(b *testing.B) {
 			b.ReportAllocs()
 			for b.Loop() {

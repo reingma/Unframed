@@ -13,16 +13,17 @@ var ErrInvalidConfig = errors.New("invalid configuration")
 
 // Reserved keys describe one node and are never inherited by its children.
 const (
-	keyTitle = "title"
-	keySlug  = "slug"
-	keyOrder = "order"
+	KeyTitle = "title"
+	KeySlug  = "slug"
+	KeyOrder = "order"
 )
 
 // Config is a decoded TOML table: string keys mapping to TOML values, with
 // nested tables as Config-compatible map[string]any and arrays as []any.
 type Config map[string]any
 
-func parseConfig(data []byte) (Config, error) {
+// ParseConfig decodes one level of TOML configuration.
+func ParseConfig(data []byte) (Config, error) {
 	config := Config{}
 	if err := toml.Unmarshal(data, (*map[string]any)(&config)); err != nil {
 		var decodeErr *toml.DecodeError
@@ -43,7 +44,7 @@ func parseConfig(data []byte) (Config, error) {
 func Cascade(parent, child Config) Config {
 	resolved := make(Config, len(parent)+len(child))
 	for key, value := range parent {
-		if key != keyTitle && key != keySlug && key != keyOrder {
+		if key != KeyTitle && key != KeySlug && key != KeyOrder {
 			resolved[key] = cloneValue(value)
 		}
 	}
@@ -82,42 +83,43 @@ func cloneValue(value any) any {
 	}
 }
 
-// nodeKeys holds the parsed node-local keys of one configuration level.
-type nodeKeys struct {
-	title    string
-	slug     Slug
-	order    int64
-	hasTitle bool
-	hasSlug  bool
-	hasOrder bool
+// NodeKeys holds the parsed node-local keys of one configuration level.
+type NodeKeys struct {
+	Title    string
+	Slug     Slug
+	Order    int64
+	HasTitle bool
+	HasSlug  bool
+	HasOrder bool
 }
 
-func parseNodeKeys(config Config) (nodeKeys, error) {
-	var keys nodeKeys
-	if raw, ok := config[keyTitle]; ok {
+// ParseNodeKeys validates the node-local keys of one configuration level.
+func ParseNodeKeys(config Config) (NodeKeys, error) {
+	var keys NodeKeys
+	if raw, ok := config[KeyTitle]; ok {
 		title, isString := raw.(string)
 		if !isString || strings.TrimSpace(title) == "" {
-			return nodeKeys{}, fmt.Errorf("%w: %q must be a non-empty string", ErrInvalidConfig, keyTitle)
+			return NodeKeys{}, fmt.Errorf("%w: %q must be a non-empty string", ErrInvalidConfig, KeyTitle)
 		}
-		keys.title, keys.hasTitle = title, true
+		keys.Title, keys.HasTitle = title, true
 	}
-	if raw, ok := config[keySlug]; ok {
+	if raw, ok := config[KeySlug]; ok {
 		text, isString := raw.(string)
 		if !isString {
-			return nodeKeys{}, fmt.Errorf("%w: %q must be a string", ErrInvalidConfig, keySlug)
+			return NodeKeys{}, fmt.Errorf("%w: %q must be a string", ErrInvalidConfig, KeySlug)
 		}
 		slug, err := ParseSlug(text)
 		if err != nil {
-			return nodeKeys{}, fmt.Errorf("%w: %w", ErrInvalidConfig, err)
+			return NodeKeys{}, fmt.Errorf("%w: %w", ErrInvalidConfig, err)
 		}
-		keys.slug, keys.hasSlug = slug, true
+		keys.Slug, keys.HasSlug = slug, true
 	}
-	if raw, ok := config[keyOrder]; ok {
+	if raw, ok := config[KeyOrder]; ok {
 		order, isInteger := raw.(int64)
 		if !isInteger {
-			return nodeKeys{}, fmt.Errorf("%w: %q must be an integer", ErrInvalidConfig, keyOrder)
+			return NodeKeys{}, fmt.Errorf("%w: %q must be an integer", ErrInvalidConfig, KeyOrder)
 		}
-		keys.order, keys.hasOrder = order, true
+		keys.Order, keys.HasOrder = order, true
 	}
 	return keys, nil
 }

@@ -9,7 +9,7 @@ import (
 )
 
 func TestParseConfig(t *testing.T) {
-	config, err := parseConfig([]byte("title = \"Notes\"\norder = 2\n[theme]\naccent = \"#336699\"\n"))
+	config, err := ParseConfig([]byte("title = \"Notes\"\norder = 2\n[theme]\naccent = \"#336699\"\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -17,22 +17,22 @@ func TestParseConfig(t *testing.T) {
 	if !reflect.DeepEqual(config, want) {
 		t.Fatalf("parseConfig = %#v, want %#v", config, want)
 	}
-	if config, err := parseConfig(nil); err != nil || len(config) != 0 {
+	if config, err := ParseConfig(nil); err != nil || len(config) != 0 {
 		t.Fatalf("empty configuration = %#v, %v", config, err)
 	}
 	for _, raw := range []string{"title = ", "title = \"a\"\ntitle = \"b\"", "[theme\n", "= 1"} {
-		if _, err := parseConfig([]byte(raw)); !errors.Is(err, ErrInvalidConfig) {
-			t.Errorf("parseConfig(%q) = %v; want ErrInvalidConfig", raw, err)
+		if _, err := ParseConfig([]byte(raw)); !errors.Is(err, ErrInvalidConfig) {
+			t.Errorf("ParseConfig(%q) = %v; want ErrInvalidConfig", raw, err)
 		}
 	}
 }
 
 func TestParseNodeKeys(t *testing.T) {
-	keys, err := parseNodeKeys(Config{"title": "Custom", "slug": "custom", "order": int64(-1)})
-	if err != nil || keys.title != "Custom" || keys.slug.String() != "custom" || keys.order != -1 || !keys.hasTitle || !keys.hasSlug || !keys.hasOrder {
+	keys, err := ParseNodeKeys(Config{"title": "Custom", "slug": "custom", "order": int64(-1)})
+	if err != nil || keys.Title != "Custom" || keys.Slug.String() != "custom" || keys.Order != -1 || !keys.HasTitle || !keys.HasSlug || !keys.HasOrder {
 		t.Fatalf("parseNodeKeys = %+v, %v", keys, err)
 	}
-	if keys, err := parseNodeKeys(Config{"other": 1}); err != nil || keys.hasTitle || keys.hasSlug || keys.hasOrder {
+	if keys, err := ParseNodeKeys(Config{"other": 1}); err != nil || keys.HasTitle || keys.HasSlug || keys.HasOrder {
 		t.Fatalf("absent keys = %+v, %v", keys, err)
 	}
 	for _, config := range []Config{
@@ -40,8 +40,8 @@ func TestParseNodeKeys(t *testing.T) {
 		{"slug": "Has-Upper"}, {"slug": "two words"}, {"slug": int64(1)},
 		{"order": 1.5}, {"order": "1"},
 	} {
-		if _, err := parseNodeKeys(config); !errors.Is(err, ErrInvalidConfig) {
-			t.Errorf("parseNodeKeys(%v) = %v; want ErrInvalidConfig", config, err)
+		if _, err := ParseNodeKeys(config); !errors.Is(err, ErrInvalidConfig) {
+			t.Errorf("ParseNodeKeys(%v) = %v; want ErrInvalidConfig", config, err)
 		}
 	}
 }
@@ -90,7 +90,7 @@ func TestCascadeProperties(t *testing.T) {
 		}
 		for _, leaf := range leaves(parent) {
 			leafPath, value := leaf.path, leaf.value
-			if leafPath[0] == keyTitle || leafPath[0] == keySlug || leafPath[0] == keyOrder {
+			if leafPath[0] == KeyTitle || leafPath[0] == KeySlug || leafPath[0] == KeyOrder {
 				if _, specified := child[leafPath[0]]; !specified {
 					if _, inherited := resolved[leafPath[0]]; inherited {
 						t.Fatalf("case %d: node-local key %q was inherited", i, leafPath[0])

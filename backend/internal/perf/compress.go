@@ -143,35 +143,36 @@ func RecordFileName(r HistoryRecord) string {
 
 var recordFilePattern = regexp.MustCompile(`^(\d{4,})-([0-9a-f]{8})\.json$`)
 
-// LoadHistory reads and validates every committed record, sorted by
-// sequence. File name and embedded sequence must agree.
-func LoadHistory(dir string) ([]HistoryRecord, error) {
-	paths, err := filepath.Glob(filepath.Join(dir, "*.json"))
-	if err != nil {
-		return nil, err
-	}
-	slices.Sort(paths)
-	records := make([]HistoryRecord, 0, len(paths))
+// historyEntry is one committed record file as read from the worktree or a
+// git revision: display names the source for error messages, name is the
+// base file name and data is the raw JSON.
+type historyEntry struct {
+	display string
+	name    string
+	data    []byte
+}
+
+// parseHistoryEntries validates raw record files: each name must match
+// NNNN-<sha8>.json and agree with the embedded sequence and revision, and
+// sequences may not repeat. Records are returned sorted by sequence.
+func parseHistoryEntries(entries []historyEntry) ([]HistoryRecord, error) {
+	records := make([]HistoryRecord, 0, len(entries))
 	seen := map[int]bool{}
-	for _, p := range paths {
-		m := recordFilePattern.FindStringSubmatch(filepath.Base(p))
+	for _, e := range entries {
+		m := recordFilePattern.FindStringSubmatch(e.name)
 		if m == nil {
-			return nil, fmt.Errorf("%s: file name does not match NNNN-<sha8>.json", p)
+			return nil, fmt.Errorf("%s: file name does not match NNNN-<sha8>.json", e.display)
 		}
-		data, err := os.ReadFile(p)
+		r, err := ParseHistoryRecord(e.data)
 		if err != nil {
-			return nil, err
-		}
-		r, err := ParseHistoryRecord(data)
-		if err != nil {
-			return nil, fmt.Errorf("%s: %w", p, err)
+			return nil, fmt.Errorf("%s: %w", e.display, err)
 		}
 		fileSeq, _ := strconv.Atoi(m[1])
 		if fileSeq != r.Sequence || m[2] != r.Revision[:8] {
-			return nil, fmt.Errorf("%s: file name does not match embedded sequence/revision", p)
+			return nil, fmt.Errorf("%s: file name does not match embedded sequence/revision", e.display)
 		}
 		if seen[r.Sequence] {
-			return nil, fmt.Errorf("%s: duplicate sequence %d", p, r.Sequence)
+			return nil, fmt.Errorf("%s: duplicate sequence %d", e.display, r.Sequence)
 		}
 		seen[r.Sequence] = true
 		records = append(records, r)
@@ -180,6 +181,25 @@ func LoadHistory(dir string) ([]HistoryRecord, error) {
 		return a.Sequence - b.Sequence
 	})
 	return records, nil
+}
+
+// LoadHistory reads and validates every committed record, sorted by
+// sequence. File name and embedded sequence must agree.
+func LoadHistory(dir string) ([]HistoryRecord, error) {
+	paths, err := filepath.Glob(filepath.Join(dir, "*.json"))
+	if err != nil {
+		return nil, err
+	}
+	slices.Sort(paths)
+	entries := make([]historyEntry, 0, len(paths))
+	for _, p := range paths {
+		data, err := os.ReadFile(p)
+		if err != nil {
+			return nil, err
+		}
+		entries = append(entries, historyEntry{display: p, name: filepath.Base(p), data: data})
+	}
+	return parseHistoryEntries(entries)
 }
 
 // WriteRecord assigns the next sequence and writes a record under dir in its

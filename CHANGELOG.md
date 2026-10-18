@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- A `perf gate` merge check for performance history, run by a `pull_request`
+  CI job and locally via `make perf-gate`: every PR must append a
+  `perf/history/` record, committed records are immutable, and the newest
+  record's measured revision must match the merged content outside
+  `perf/history/`. Records from non-canonical machines pass with a warning.
+  The gate is presence-and-binding only; it sets no performance thresholds.
 - Content tree scanning: a `content.Source` interface with a confined
   filesystem implementation, slug-form names with derived titles and URLs,
   typed TOML `.configuration` files and `+++` frontmatter with per-field

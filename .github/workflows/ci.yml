@@ -44,6 +44,21 @@ jobs:
         working-directory: frontend
       - run: make check-frontend test-frontend build-frontend
 
+  perf-history:
+    name: Performance history record gate
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - run: make perf-gate PERF_BASE=${{ github.event.pull_request.base.sha }} PERF_HEAD=${{ github.event.pull_request.head.sha }}
+
   integration:
     name: Production integration tests
     needs: [backend, frontend]

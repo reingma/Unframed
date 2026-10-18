@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "site": {
+    "title": "Unframed",
+    "description": "A blog",
+    "theme": {
+      "accent": "#336699",
+      "background": "#ffffff",
+      "text": "#111111"
+    }
+  },
+  "nav": {
+    "kind": "directory",
+    "urlPath": "/",
+    "title": "Unframed",
+    "description": "A blog",
+    "hasIndex": false,
+    "children": [
+      {
+        "kind": "directory",
+        "urlPath": "/mathematics",
+        "title": "Mathematics",
+        "description": "Notes",
+        "hasIndex": true,
+        "children": [
+          {
+            "kind": "article",
+            "urlPath": "/mathematics/on-martingales",
+            "title": "On Martingales",
+            "description": "Fair games",
+            "hasIndex": false,
+            "children": []
+          }
+        ]
+      }
+    ]
+  }
+}

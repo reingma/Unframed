@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "metadata": {
+    "urlPath": "/mathematics/on-martingales",
+    "title": "On Martingales",
+    "description": "Fair games",
+    "draft": false,
+    "landing": false
+  },
+  "resolvedConfig": {
+    "theme": {
+      "accent": "#336699",
+      "background": "#ffffff",
+      "text": "#111111"
+    }
+  },
+  "body": {
+    "kind": "html",
+    "content": "<h1>On Martingales</h1>\n"
+  }
+}

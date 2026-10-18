@@ -49,7 +49,8 @@ order = 2
 ```
 
 Without an opening `+++` line, the whole file is the article body and its
-configuration is empty.
+configuration is empty. The [document contract](document-contract.md) describes
+how the body is rendered.
 
 These keys are recognized; every other key is ignored:
 

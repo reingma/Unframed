@@ -2,6 +2,7 @@
 
 The [current architecture](architecture.md) describes the implemented system.
 The [content authoring schema](content-authoring.md) describes the content tree format.
+The [document contract](document-contract.md) describes the JSON documents built from it.
 [ADRs](../decisions/README.md) explain enduring choices and their consequences.
 
 For document ownership, maintenance and the implementation handoff policy, follow

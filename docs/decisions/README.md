@@ -9,6 +9,7 @@ rather than silently rewriting its history.
 - [0002: ESLint preset selection](0002-eslint-preset-selection.md)
 - [0003: performance history records and measurement](0003-performance-history-records-and-measurement.md)
 - [0004: content source and authoring format](0004-content-source-and-authoring-format.md)
+- [0005: document envelope, Markdown rendering and event fanout](0005-document-envelope-rendering-and-fanout.md)
 
 ## Engineering resources
 

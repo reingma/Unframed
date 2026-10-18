@@ -20,14 +20,17 @@ type Node struct {
 	Slug Slug
 	// URLPath is the slugified tree path, such as "/mathematics/on-martingales".
 	URLPath string
-	Order   int64
-	Ordered bool
+	// Description is the node's own description; it is not inherited.
+	Description string
+	Order       int
+	Ordered     bool
 	// Draft marks an "X.draft.md" article. Drafts are never in a nav tree.
 	Draft bool
 	// Landing marks an "index.md" article, its directory's landing content.
 	Landing bool
-	// Config is the resolved configuration after the root → directory → article cascade.
-	Config Config
+	// Theme is the resolved, complete theme after the root → directory →
+	// article cascade.
+	Theme Theme
 	// Index is a directory's published landing article, if any.
 	Index *Node
 	// Children are a directory's published nav entries, ordered by order

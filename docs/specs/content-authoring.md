@@ -51,23 +51,38 @@ order = 2
 Without an opening `+++` line, the whole file is the article body and its
 configuration is empty.
 
-Three keys describe the node itself and are never inherited:
+These keys are recognized; every other key is ignored:
 
-| Key     | Type                                  | Effect                                      |
-| ------- | ------------------------------------- | ------------------------------------------- |
-| `title` | non-empty string                      | Replaces the derived display title.         |
-| `slug`  | lowercase slug, such as `my-section`  | Replaces the derived URL slug.              |
-| `order` | integer                               | Sorts the node before unordered siblings.   |
+| Key                | Type                                 | Root     | Directory, article | Landing page |
+| ------------------ | ------------------------------------ | -------- | ------------------ | ------------ |
+| `title`            | text of at most 120 characters       | required | optional           | optional     |
+| `description`      | text of at most 300 characters       | optional | optional           | optional     |
+| `slug`             | lowercase slug, such as `my-section` | rejected | optional           | rejected     |
+| `order`            | integer from 0 to 9999               | rejected | optional           | rejected     |
+| `theme.accent`     | `#RRGGBB` color                      | required | optional           | optional     |
+| `theme.background` | `#RRGGBB` color                      | required | optional           | optional     |
+| `theme.text`       | `#RRGGBB` color                      | required | optional           | optional     |
 
-The root may set `title` but not `slug` or `order`. A landing page may set
-`title` but not `slug` or `order`.
+Text is trimmed of surrounding whitespace and must be a non-empty single line
+without control characters. Colors accept hexadecimal digits in either case.
 
-Every other key is preserved and cascades from the root through each
-directory to its articles. A child's value replaces an inherited value, except
-that tables merge key by key at every depth. Arrays are replaced, not
-concatenated. For example, with a root `[theme]` of `accent = "blue"` and
-`font = "serif"` and an article `[theme]` of `font = "mono"`, the article's
-theme is `accent = "blue"` and `font = "mono"`.
+`title` replaces the derived display title, `slug` the derived URL slug, and
+`order` sorts the node before unordered siblings. `title`, `description`,
+`slug` and `order` describe their node only and are never inherited.
+
+The `[theme]` colors cascade from the root through each directory to its
+articles: each color a node sets replaces the inherited one. Because the root
+sets every color, every node has a complete theme. For example:
+
+```toml
+# .configuration
+title = "Unframed"
+
+[theme]
+accent = "#336699"
+background = "#FFFFFF"
+text = "#111111"
+```
 
 ## Navigation and drafts
 
@@ -86,13 +101,16 @@ A scan reports each invalid item with its path and excludes it; valid items
 are unaffected. These are per-item errors:
 
 - An invalid directory or article name.
-- Invalid TOML, a missing closing `+++`, a wrongly typed `title`, `slug` or
-  `order`, or `slug`/`order` on a landing page.
+- Invalid TOML, a missing closing `+++`, or a recognized key that breaks the
+  rules above. Each error names the file, the key path such as
+  `theme.accent`, its line and column, the broken rule and the value found.
+  Every broken rule in a file is reported at once.
 - An unreadable file.
 - Siblings that resolve to the same URL. Every sibling in the collision is
   excluded. A draft and a published article only collide with siblings of the
   same kind.
 
 An invalid directory name or directory `.configuration` excludes the whole
-directory. A missing, unreadable or invalid root `.configuration` is fatal:
-no manifest is produced.
+directory. A root `.configuration` that is missing, unreadable or breaks the
+rules, for example by lacking a required key, is fatal: no manifest is
+produced.

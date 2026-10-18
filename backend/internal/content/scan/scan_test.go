@@ -18,11 +18,22 @@ import (
 
 func quietLogger() *slog.Logger { return slog.New(slog.DiscardHandler) }
 
+const validRoot = "title = \"Unframed\"\n[theme]\naccent = \"#336699\"\nbackground = \"#FFFFFF\"\ntext = \"#111111\"\nfont = \"serif\"\n"
+
+func mustColor(t testing.TB, raw string) content.Color {
+	t.Helper()
+	color, err := content.ParseColor(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return color
+}
+
 var validTree = map[string]string{
-	".configuration":                                  "title = \"Unframed\"\n[theme]\naccent = \"blue\"\nfont = \"serif\"\n",
-	"Mathematics/.configuration":                      "order = 1\n[theme]\naccent = \"green\"\n",
-	"Mathematics/index.md":                            "+++\nsummary = \"Notes on mathematics\"\n+++\nWelcome\n",
-	"Mathematics/Probability/On-Martingales.md":       "+++\ntitle = \"On Martingales and Stopping\"\n[theme]\nfont = \"mono\"\n+++\n# Body\n",
+	".configuration":                                  validRoot,
+	"Mathematics/.configuration":                      "order = 1\n[theme]\naccent = \"#228B22\"\n",
+	"Mathematics/index.md":                            "+++\ndescription = \"Notes on mathematics\"\n+++\nWelcome\n",
+	"Mathematics/Probability/On-Martingales.md":       "+++\ntitle = \"On Martingales and Stopping\"\n[theme]\ntext = \"#000000\"\nfont = \"mono\"\n+++\n# Body\n",
 	"Mathematics/Probability/On-Martingales.draft.md": "Draft rewrite\n",
 	"Mathematics/Probability/figure.png":              "png",
 	"Mathematics/Linear-Algebra.md":                   "No frontmatter\n",
@@ -101,10 +112,18 @@ func TestScanValidTree(t *testing.T) {
 			if len(articles) != 9 {
 				t.Fatalf("article index has %d entries: %v", len(articles), articles)
 			}
+			for _, article := range manifest.Articles {
+				if !article.Theme.Complete() {
+					t.Errorf("%s has an incomplete theme %+v", article.SourcePath, article.Theme)
+				}
+			}
 			martingales := articles["Mathematics/Probability/On-Martingales.md"]
-			wantConfig := content.Config{"title": "On Martingales and Stopping", "theme": map[string]any{"accent": "green", "font": "mono"}}
-			if !reflect.DeepEqual(martingales.Config, wantConfig) {
-				t.Fatalf("resolved config = %#v, want %#v", martingales.Config, wantConfig)
+			wantTheme := content.Theme{Accent: mustColor(t, "#228b22"), Background: mustColor(t, "#ffffff"), Text: mustColor(t, "#000000")}
+			if martingales.Theme != wantTheme {
+				t.Fatalf("resolved theme = %+v, want %+v", martingales.Theme, wantTheme)
+			}
+			if linear := articles["Mathematics/Linear-Algebra.md"]; linear.Theme.Text != mustColor(t, "#111111") || linear.Theme.Accent != wantTheme.Accent {
+				t.Fatalf("inherited theme = %+v", linear.Theme)
 			}
 			draft := articles["Mathematics/Probability/On-Martingales.draft.md"]
 			if !draft.Draft || draft.URLPath != martingales.URLPath || draft.Title != "On Martingales" {
@@ -114,7 +133,7 @@ func TestScanValidTree(t *testing.T) {
 				t.Fatalf("draft in an otherwise empty directory is not indexed: %+v", idea)
 			}
 			landing := articles["Mathematics/index.md"]
-			if !landing.Landing || landing.URLPath != "/mathematics" || landing.Title != "Mathematics" || landing.Config["summary"] != "Notes on mathematics" {
+			if !landing.Landing || landing.URLPath != "/mathematics" || landing.Title != "Mathematics" || landing.Description != "Notes on mathematics" {
 				t.Fatalf("landing = %+v", landing)
 			}
 		})
@@ -140,7 +159,7 @@ func TestScanNeverListsDrafts(t *testing.T) {
 
 func TestScanPerItemErrors(t *testing.T) {
 	tree := map[string]string{
-		".configuration":            "",
+		".configuration":            validRoot,
 		"Valid.md":                  "ok",
 		"Bad_Directory/Article.md":  "excluded with its directory",
 		"Bad-Config/.configuration": "order = \n",
@@ -202,6 +221,11 @@ func TestScanPerItemErrors(t *testing.T) {
 	if len(got) != len(want) {
 		t.Errorf("errors = %v", manifest.Errors)
 	}
+	var configErr *content.ConfigError
+	if !errors.As(got["Wrong-Type/.configuration"], &configErr) || len(configErr.Fields) != 1 ||
+		configErr.Fields[0].Key != "title" || configErr.Fields[0].Rule != content.RuleType || configErr.Fields[0].Line != 1 {
+		t.Errorf("Wrong-Type/.configuration detail = %#v", got["Wrong-Type/.configuration"])
+	}
 	indexed := map[string]bool{}
 	for _, article := range manifest.Articles {
 		indexed[article.SourcePath] = true
@@ -223,21 +247,30 @@ func TestScanPerItemErrors(t *testing.T) {
 }
 
 func TestScanFatalRootConfig(t *testing.T) {
-	for name, root := range map[string]*string{
-		"missing":     nil,
-		"unparseable": ptr("title = \n"),
-		"wrong type":  ptr("title = []\n"),
-		"root slug":   ptr("slug = \"home\"\n"),
-		"root order":  ptr("order = 1\n"),
+	for name, tc := range map[string]struct {
+		root *string
+		rule content.Rule
+	}{
+		"missing":          {nil, content.RuleRequired},
+		"empty":            {ptr(""), content.RuleRequired},
+		"incomplete theme": {ptr("title = \"Site\"\n[theme]\naccent = \"#000000\"\n"), content.RuleRequired},
+		"unparseable":      {ptr("title = \n"), content.RuleSyntax},
+		"wrong type":       {ptr(strings.Replace(validRoot, "\"Unframed\"", "[]", 1)), content.RuleType},
+		"root slug":        {ptr("slug = \"home\"\n" + validRoot), content.RuleNotAllowed},
+		"root order":       {ptr("order = 1\n" + validRoot), content.RuleNotAllowed},
 	} {
 		t.Run(name, func(t *testing.T) {
 			tree := contenttest.MemSource{"Article.md": "valid"}
-			if root != nil {
-				tree[".configuration"] = *root
+			if tc.root != nil {
+				tree[".configuration"] = *tc.root
 			}
 			manifest, err := Scan(context.Background(), tree, quietLogger())
-			if !errors.Is(err, ErrInvalidRootConfig) || manifest != nil {
-				t.Fatalf("Scan = %v, %v; want ErrInvalidRootConfig", manifest, err)
+			var configErr *content.ConfigError
+			if !errors.Is(err, ErrInvalidRootConfig) || manifest != nil || !errors.As(err, &configErr) {
+				t.Fatalf("Scan = %v, %v; want ErrInvalidRootConfig with a *content.ConfigError", manifest, err)
+			}
+			if configErr.Fields[0].Rule != tc.rule || !strings.Contains(err.Error(), ".configuration") {
+				t.Fatalf("Scan error = %v; want rule %s naming the file", err, tc.rule)
 			}
 		})
 	}
@@ -297,7 +330,7 @@ func TestScanLogsCorrelatedSummary(t *testing.T) {
 	var buf bytes.Buffer
 	logger := slog.New(traceHandler{slog.NewJSONHandler(&buf, nil)})
 	ctx := context.WithValue(context.Background(), traceKey{}, "trace-34")
-	tree := contenttest.MemSource{".configuration": "", "Valid.md": "ok", "Bad_Name.md": "", "Secret.md": "+++\ntoken = \"do-not-log\"\n+++\n"}
+	tree := contenttest.MemSource{".configuration": validRoot, "Valid.md": "ok", "Bad_Name.md": "", "Secret.md": "+++\ntoken = \"do-not-log\"\n+++\n"}
 	if _, err := Scan(ctx, tree, logger); err != nil {
 		t.Fatal(err)
 	}
@@ -322,7 +355,7 @@ func TestScanDeterministic(t *testing.T) {
 		}
 		var b strings.Builder
 		for _, article := range manifest.Articles {
-			fmt.Fprintf(&b, "%s %s %v\n", article.SourcePath, article.URLPath, article.Config)
+			fmt.Fprintf(&b, "%s %s %q %+v\n", article.SourcePath, article.URLPath, article.Description, article.Theme)
 		}
 		fmt.Fprintf(&b, "%+v %v", project(manifest.Root), manifest.Errors)
 		return b.String()

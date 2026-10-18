@@ -21,9 +21,11 @@ follow in later work.
 - The tree is the navigation. Directory and article names are slug-form, so
   titles and URLs derive from them without per-file configuration.
 - Configuration is TOML: `.configuration` files for the root and directories
-  and `+++` frontmatter for articles. It cascades root → directory → article,
-  with `title`, `slug` and `order` local to a node. TOML is parsed with
-  `github.com/pelletier/go-toml/v2`.
+  and `+++` frontmatter for articles. It has a fixed, typed schema validated
+  per field with the file, key, position and rule of each error. Only the
+  theme cascades root → directory → article; the root must define the title
+  and a complete theme. TOML is parsed with `github.com/pelletier/go-toml/v2`,
+  whose `unstable` parser locates keys for error positions.
 - Drafts use an `X.draft.md` name: indexed for previews, never listed.
 - Invalid items are excluded and reported without blocking valid content.
   Only an invalid root configuration is fatal, because every node inherits it.
@@ -31,10 +33,13 @@ follow in later work.
 ## Consequences
 
 - Moving or renaming a file changes its URL; there is no stable ID yet.
-- Unknown configuration keys are preserved, so appearance and math settings
-  can be added without changing the format, but typos are not rejected.
+- Unknown configuration keys are ignored, so files may carry settings for
+  later features, but a misspelled key is silently ignored rather than
+  rejected. New settings need a schema change.
+- The `unstable` go-toml API is outside that library's compatibility
+  guarantee; it is pinned and only used to locate keys.
 - Scanning reads every article. ENG-34's benchmark scans 1,000 articles from a
-  local filesystem in about 22 ms; very large trees or remote sources may need
+  local filesystem in about 20 ms; very large trees or remote sources may need
   concurrent reads or incremental scans.
 - The [authoring schema](../specs/content-authoring.md) is the canonical
   description of the format.

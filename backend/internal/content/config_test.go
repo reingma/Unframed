@@ -2,189 +2,228 @@ package content
 
 import (
 	"errors"
-	"fmt"
 	"math/rand/v2"
-	"reflect"
+	"strings"
 	"testing"
+	"unicode"
+	"unicode/utf8"
 )
 
-func TestParseConfig(t *testing.T) {
-	config, err := ParseConfig([]byte("title = \"Notes\"\norder = 2\n[theme]\naccent = \"#336699\"\n"))
+const validSite = "title = \"Unframed\"\ndescription = \"Notes\"\n[theme]\naccent = \"#3366AA\"\nbackground = \"#ffffff\"\ntext = \"#111111\"\n"
+
+func TestParseConfigValid(t *testing.T) {
+	site, err := ParseConfig(LevelSite, []byte(validSite))
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := Config{"title": "Notes", "order": int64(2), "theme": map[string]any{"accent": "#336699"}}
-	if !reflect.DeepEqual(config, want) {
-		t.Fatalf("parseConfig = %#v, want %#v", config, want)
+	want := Config{Title: "Unframed", Description: "Notes", Theme: Theme{
+		Accent: Color{"#3366aa"}, Background: Color{"#ffffff"}, Text: Color{"#111111"},
+	}}
+	if site != want {
+		t.Fatalf("site = %+v, want %+v", site, want)
 	}
-	if config, err := ParseConfig(nil); err != nil || len(config) != 0 {
-		t.Fatalf("empty configuration = %#v, %v", config, err)
+
+	article, err := ParseConfig(LevelArticle, []byte("title = \"  Padded  \"\nslug = \"custom\"\norder = 0\ntheme = { text = \"#000000\" }\n"))
+	if err != nil {
+		t.Fatal(err)
 	}
-	for _, raw := range []string{"title = ", "title = \"a\"\ntitle = \"b\"", "[theme\n", "= 1"} {
-		if _, err := ParseConfig([]byte(raw)); !errors.Is(err, ErrInvalidConfig) {
-			t.Errorf("ParseConfig(%q) = %v; want ErrInvalidConfig", raw, err)
+	if article.Title != "Padded" || article.Slug.String() != "custom" || !article.Ordered || article.Order != 0 || article.Theme != (Theme{Text: Color{"#000000"}}) {
+		t.Fatalf("article = %+v", article)
+	}
+
+	for _, level := range []Level{LevelDirectory, LevelArticle, LevelLanding} {
+		if config, err := ParseConfig(level, nil); err != nil || config != (Config{}) {
+			t.Errorf("empty level %d = %+v, %v", level, config, err)
 		}
 	}
 }
 
-func TestParseNodeKeys(t *testing.T) {
-	keys, err := ParseNodeKeys(Config{"title": "Custom", "slug": "custom", "order": int64(-1)})
-	if err != nil || keys.Title != "Custom" || keys.Slug.String() != "custom" || keys.Order != -1 || !keys.HasTitle || !keys.HasSlug || !keys.HasOrder {
-		t.Fatalf("parseNodeKeys = %+v, %v", keys, err)
+func TestParseConfigIgnoresUnknownKeys(t *testing.T) {
+	data := "summary = 1\n[math]\nengine = \"katex\"\n[theme]\nfont = \"serif\"\n[[links]]\ntitle = 3\n"
+	if config, err := ParseConfig(LevelDirectory, []byte(data)); err != nil || config != (Config{}) {
+		t.Fatalf("unknown keys = %+v, %v", config, err)
 	}
-	if keys, err := ParseNodeKeys(Config{"other": 1}); err != nil || keys.HasTitle || keys.HasSlug || keys.HasOrder {
-		t.Fatalf("absent keys = %+v, %v", keys, err)
-	}
-	for _, config := range []Config{
-		{"title": ""}, {"title": "  "}, {"title": int64(1)},
-		{"slug": "Has-Upper"}, {"slug": "two words"}, {"slug": int64(1)},
-		{"order": 1.5}, {"order": "1"},
+}
+
+type wantField struct {
+	key          string
+	rule         Rule
+	line, column int
+}
+
+func TestParseConfigFieldErrors(t *testing.T) {
+	for name, tc := range map[string]struct {
+		level Level
+		data  string
+		want  []wantField
+	}{
+		"site requires title and theme": {LevelSite, "", []wantField{
+			{"title", RuleRequired, 0, 0}, {"theme.accent", RuleRequired, 0, 0},
+			{"theme.background", RuleRequired, 0, 0}, {"theme.text", RuleRequired, 0, 0},
+		}},
+		"site rejects slug and order": {LevelSite, validSite + "[extra]\n", nil},
+		"wrong title type":            {LevelDirectory, "title = 3\n", []wantField{{"title", RuleType, 1, 1}}},
+		"blank title":                 {LevelArticle, "\n  title = \"   \"\n", []wantField{{"title", RuleText, 2, 3}}},
+		"multi-line title":            {LevelArticle, "title = \"a\\nb\"\n", []wantField{{"title", RuleText, 1, 1}}},
+		"long title":                  {LevelArticle, "title = \"" + strings.Repeat("é", MaxTitleLength+1) + "\"\n", []wantField{{"title", RuleText, 1, 1}}},
+		"long description":            {LevelArticle, "description = \"" + strings.Repeat("a", MaxDescriptionLength+1) + "\"\n", []wantField{{"description", RuleText, 1, 1}}},
+		"slug form":                   {LevelDirectory, "slug = \"Not-Lower\"\n", []wantField{{"slug", RuleSlug, 1, 1}}},
+		"order range":                 {LevelArticle, "order = 10000\n", []wantField{{"order", RuleRange, 1, 1}}},
+		"negative order":              {LevelArticle, "order = -1\n", []wantField{{"order", RuleRange, 1, 1}}},
+		"fractional order":            {LevelArticle, "order = 1.5\n", []wantField{{"order", RuleType, 1, 1}}},
+		"landing slug and order":      {LevelLanding, "order = 1\nslug = \"x\"\n", []wantField{{"slug", RuleNotAllowed, 2, 1}, {"order", RuleNotAllowed, 1, 1}}},
+		"theme not a table":           {LevelDirectory, "theme = \"dark\"\n", []wantField{{"theme", RuleType, 1, 1}}},
+		"color form":                  {LevelDirectory, "[theme]\naccent = \"blue\"\n", []wantField{{"theme.accent", RuleColor, 2, 1}}},
+		"inline table color":          {LevelArticle, "theme = { accent = 1 }\n", []wantField{{"theme.accent", RuleType, 1, 11}}},
+		"dotted key color":            {LevelArticle, "theme.text = \"#12345\"\n", []wantField{{"theme.text", RuleColor, 1, 1}}},
+		"every error is reported":     {LevelDirectory, "order = \"1\"\ntitle = \"\"\n[theme]\ntext = \"#zzzzzz\"\n", []wantField{{"title", RuleText, 2, 1}, {"order", RuleType, 1, 1}, {"theme.text", RuleColor, 4, 1}}},
 	} {
-		if _, err := ParseNodeKeys(config); !errors.Is(err, ErrInvalidConfig) {
-			t.Errorf("ParseNodeKeys(%v) = %v; want ErrInvalidConfig", config, err)
-		}
-	}
-}
-
-func TestCascadeNodeLocalKeys(t *testing.T) {
-	parent := Config{"title": "Parent", "slug": "parent", "order": int64(1), "theme": "dark"}
-	got := Cascade(parent, Config{"order": int64(5)})
-	want := Config{"order": int64(5), "theme": "dark"}
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("Cascade = %#v, want %#v", got, want)
-	}
-}
-
-func TestCascadeDoesNotAlias(t *testing.T) {
-	parent := Config{"theme": map[string]any{"accent": "red"}, "tags": []any{"a"}}
-	child := Config{"theme": map[string]any{"font": "serif"}, "list": []any{map[string]any{"k": "v"}}}
-	parentCopy, childCopy := cloneValue(map[string]any(parent)), cloneValue(map[string]any(child))
-	resolved := Cascade(parent, child)
-	resolved["theme"].(map[string]any)["accent"] = "mutated"
-	resolved["tags"].([]any)[0] = "mutated"
-	resolved["list"].([]any)[0].(map[string]any)["k"] = "mutated"
-	if !reflect.DeepEqual(map[string]any(parent), parentCopy) || !reflect.DeepEqual(map[string]any(child), childCopy) {
-		t.Fatal("Cascade aliased or modified its inputs")
-	}
-}
-
-// TestCascadeProperties checks, over generated configurations, that every
-// value the child specifies wins and every other inheritable parent value
-// survives unchanged.
-func TestCascadeProperties(t *testing.T) {
-	rng := rand.New(rand.NewPCG(34, 1))
-	for i := range 1000 {
-		parent, child := randomConfig(rng, 3), randomConfig(rng, 3)
-		resolved := Cascade(parent, child)
-		for _, leaf := range leaves(child) {
-			leafPath, value := leaf.path, leaf.value
-			if table, isTable := value.(map[string]any); isTable && len(table) == 0 {
-				if got, ok := lookup(resolved, leafPath); !ok || reflect.TypeOf(got) != reflect.TypeOf(table) {
-					t.Fatalf("case %d: empty child table at %v resolved to %#v", i, leafPath, got)
+		t.Run(name, func(t *testing.T) {
+			if tc.want == nil {
+				tc.data = "slug = \"home\"\norder = 1\n" + tc.data
+				tc.want = []wantField{{"slug", RuleNotAllowed, 1, 1}, {"order", RuleNotAllowed, 2, 1}}
+			}
+			_, err := ParseConfig(tc.level, []byte(tc.data))
+			var configErr *ConfigError
+			if !errors.Is(err, ErrInvalidConfig) || !errors.As(err, &configErr) {
+				t.Fatalf("ParseConfig = %v; want a *ConfigError", err)
+			}
+			var got []wantField
+			for _, field := range configErr.Fields {
+				got = append(got, wantField{field.Key, field.Rule, field.Line, field.Column})
+				if field.Message == "" || (field.Rule != RuleRequired) == (field.Value == "") {
+					t.Errorf("field %+v: message or found value missing", field)
 				}
-				continue
 			}
-			if got, ok := lookup(resolved, leafPath); !ok || !reflect.DeepEqual(got, value) {
-				t.Fatalf("case %d: child value at %v = %#v, resolved has %#v", i, leafPath, value, got)
+			if !equalFields(got, tc.want) {
+				t.Fatalf("fields = %+v, want %+v", got, tc.want)
 			}
-		}
-		for _, leaf := range leaves(parent) {
-			leafPath, value := leaf.path, leaf.value
-			if leafPath[0] == KeyTitle || leafPath[0] == KeySlug || leafPath[0] == KeyOrder {
-				if _, specified := child[leafPath[0]]; !specified {
-					if _, inherited := resolved[leafPath[0]]; inherited {
-						t.Fatalf("case %d: node-local key %q was inherited", i, leafPath[0])
-					}
-				}
-				continue
-			}
-			if shadowed(child, leafPath) {
-				continue
-			}
-			if got, ok := lookup(resolved, leafPath); !ok || !reflect.DeepEqual(got, value) {
-				t.Fatalf("case %d: inherited value at %v = %#v, resolved has %#v", i, leafPath, value, got)
-			}
-		}
-		for _, leaf := range leaves(resolved) {
-			leafPath := leaf.path
-			_, inChild := lookup(child, leafPath)
-			_, inParent := lookup(parent, leafPath)
-			if !inChild && !inParent {
-				t.Fatalf("case %d: resolved invented %v", i, leafPath)
-			}
-		}
+		})
 	}
 }
 
-var cascadeKeys = []string{"title", "slug", "order", "theme", "accent", "math", "font"}
-
-func randomConfig(rng *rand.Rand, depth int) Config {
-	config := Config{}
-	for range rng.IntN(5) {
-		key := cascadeKeys[rng.IntN(len(cascadeKeys))]
-		switch kind := rng.IntN(4); {
-		case kind == 0 && depth > 0:
-			config[key] = map[string]any(randomConfig(rng, depth-1))
-		case kind == 1:
-			config[key] = []any{int64(rng.IntN(3)), "x"}
-		case kind == 2:
-			config[key] = int64(rng.IntN(10))
-		default:
-			config[key] = fmt.Sprintf("v%d", rng.IntN(10))
-		}
+func equalFields(a, b []wantField) bool {
+	if len(a) != len(b) {
+		return false
 	}
-	return config
-}
-
-type leaf struct {
-	path  []string
-	value any
-}
-
-// leaves lists every non-table value, and every empty table, with its key path.
-func leaves(table map[string]any) []leaf {
-	var out []leaf
-	var walk func(map[string]any, []string)
-	walk = func(table map[string]any, prefix []string) {
-		for key, value := range table {
-			leafPath := append(append([]string(nil), prefix...), key)
-			if nested, ok := value.(map[string]any); ok && len(nested) > 0 {
-				walk(nested, leafPath)
-				continue
-			}
-			out = append(out, leaf{path: leafPath, value: value})
-		}
-	}
-	walk(table, nil)
-	return out
-}
-
-func lookup(table map[string]any, leafPath []string) (any, bool) {
-	var current any = table
-	for _, key := range leafPath {
-		nested, ok := current.(map[string]any)
-		if !ok {
-			return nil, false
-		}
-		if current, ok = nested[key]; !ok {
-			return nil, false
-		}
-	}
-	return current, true
-}
-
-// shadowed reports whether the child specifies the path, or a prefix of it
-// with a non-table value that replaces the parent's table.
-func shadowed(child map[string]any, leafPath []string) bool {
-	var current any = child
-	for _, key := range leafPath {
-		nested, ok := current.(map[string]any)
-		if !ok {
-			return true
-		}
-		if current, ok = nested[key]; !ok {
+	for i := range a {
+		if a[i] != b[i] {
 			return false
 		}
 	}
 	return true
+}
+
+func TestParseConfigSyntaxError(t *testing.T) {
+	for raw, positioned := range map[string]bool{"title = ": true, "[theme\n": true, "= 1": true, "title = \"a\"\ntitle = \"b\"": false} {
+		_, err := ParseConfig(LevelArticle, []byte(raw))
+		var configErr *ConfigError
+		if !errors.As(err, &configErr) || len(configErr.Fields) != 1 {
+			t.Fatalf("ParseConfig(%q) = %v; want one syntax error", raw, err)
+		}
+		field := configErr.Fields[0]
+		if field.Rule != RuleSyntax || strings.HasPrefix(field.Message, "toml:") || positioned && (field.Line < 1 || field.Column < 1) {
+			t.Errorf("ParseConfig(%q) field = %+v", raw, field)
+		}
+	}
+}
+
+func TestParseColor(t *testing.T) {
+	for raw, want := range map[string]string{"#000000": "#000000", "#AbCdEf": "#abcdef", "#123abc": "#123abc"} {
+		if color, err := ParseColor(raw); err != nil || color.String() != want {
+			t.Errorf("ParseColor(%q) = %q, %v; want %q", raw, color, err, want)
+		}
+	}
+	for _, raw := range []string{"", "#", "000000", "#00000", "#0000000", "#gggggg", "blue", "#00 000"} {
+		if _, err := ParseColor(raw); !errors.Is(err, ErrInvalidColor) {
+			t.Errorf("ParseColor(%q) = %v; want ErrInvalidColor", raw, err)
+		}
+	}
+}
+
+// TestThemeOverrideProperties checks over generated themes that set colors
+// win, unset colors inherit, and completeness is preserved.
+func TestThemeOverrideProperties(t *testing.T) {
+	rng := rand.New(rand.NewPCG(34, 2))
+	colors := []Color{{}, {"#000000"}, {"#ffffff"}, {"#336699"}}
+	random := func() Theme {
+		return Theme{colors[rng.IntN(len(colors))], colors[rng.IntN(len(colors))], colors[rng.IntN(len(colors))]}
+	}
+	pick := func(override, inherited Color) Color {
+		if override.IsZero() {
+			return inherited
+		}
+		return override
+	}
+	for i := range 1000 {
+		parent, child := random(), random()
+		got := parent.Override(child)
+		want := Theme{pick(child.Accent, parent.Accent), pick(child.Background, parent.Background), pick(child.Text, parent.Text)}
+		if got != want {
+			t.Fatalf("case %d: %+v.Override(%+v) = %+v, want %+v", i, parent, child, got, want)
+		}
+		if parent.Complete() && !got.Complete() {
+			t.Fatalf("case %d: override lost completeness", i)
+		}
+		if got.Override(child) != got {
+			t.Fatalf("case %d: override is not idempotent", i)
+		}
+	}
+}
+
+// FuzzParseConfig checks that every accepted configuration satisfies the
+// schema and every rejection is a described *ConfigError.
+func FuzzParseConfig(f *testing.F) {
+	for _, seed := range []string{
+		validSite, "", "title = 3", "order = 9999\nslug = \"a-b\"", "theme = { accent = \"#AABBCC\" }",
+		"title = \"a\\u0007\"", "[theme]\ntext = \"#12345g\"", "[[theme]]\naccent = \"#000000\"",
+	} {
+		for level := LevelSite; level <= LevelLanding; level++ {
+			f.Add(uint8(level), seed)
+		}
+	}
+	f.Fuzz(func(t *testing.T, rawLevel uint8, data string) {
+		level := Level(rawLevel%4 + 1)
+		config, err := ParseConfig(level, []byte(data))
+		if err != nil {
+			var configErr *ConfigError
+			if !errors.Is(err, ErrInvalidConfig) || !errors.As(err, &configErr) || len(configErr.Fields) == 0 {
+				t.Fatalf("rejection %v is not a described *ConfigError", err)
+			}
+			for _, field := range configErr.Fields {
+				if field.Rule == "" || field.Message == "" || (field.Line > 0) != (field.Column > 0) {
+					t.Fatalf("incomplete field error %+v", field)
+				}
+			}
+			return
+		}
+		for _, text := range []struct {
+			value string
+			max   int
+		}{{config.Title, MaxTitleLength}, {config.Description, MaxDescriptionLength}} {
+			if text.value != strings.TrimSpace(text.value) || utf8.RuneCountInString(text.value) > text.max || strings.IndexFunc(text.value, unicode.IsControl) >= 0 {
+				t.Fatalf("accepted text %q", text.value)
+			}
+		}
+		if config.Order < 0 || config.Order > MaxOrder || (!config.Ordered && config.Order != 0) {
+			t.Fatalf("accepted order %d", config.Order)
+		}
+		if config.Slug != (Slug{}) {
+			if _, err := ParseSlug(config.Slug.String()); err != nil {
+				t.Fatalf("accepted slug %q", config.Slug)
+			}
+		}
+		for _, color := range []Color{config.Theme.Accent, config.Theme.Background, config.Theme.Text} {
+			if _, err := ParseColor(color.String()); !color.IsZero() && (err != nil || color.String() != strings.ToLower(color.String())) {
+				t.Fatalf("accepted color %q", color)
+			}
+		}
+		nodeLocal := level == LevelDirectory || level == LevelArticle
+		if !nodeLocal && (config.Ordered || config.Slug != (Slug{})) {
+			t.Fatalf("level %d accepted slug or order: %+v", level, config)
+		}
+		if level == LevelSite && (config.Title == "" || !config.Theme.Complete()) {
+			t.Fatalf("site accepted without required fields: %+v", config)
+		}
+	})
 }

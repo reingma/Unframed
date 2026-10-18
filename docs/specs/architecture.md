@@ -23,8 +23,8 @@ and future rendering boundary.
   manifest. `FSSource` reads a local directory confined with `os.Root`.
   [content/scan](../../backend/internal/content/scan/scan.go) exports only `Scan`,
   which reads a `Source` into a validated manifest: the public navigation tree,
-  an article index including drafts, resolved configuration, the separate list
-  of assets and per-item validation errors. The
+  an article index including drafts, each node's typed configuration and
+  resolved theme, the separate list of assets and per-item validation errors. The
   [authoring schema](content-authoring.md) owns the format and
   [ADR 0004](../decisions/0004-content-source-and-authoring-format.md) its rationale.
   The server does not call it yet.

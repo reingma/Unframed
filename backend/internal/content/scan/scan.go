@@ -33,9 +33,9 @@ const (
 )
 
 // Scan reads a content tree into a manifest and logs one summary record to
-// logger, which must not be nil. Invalid items are excluded and
-// reported in content.Manifest.Errors. Scan fails only when the tree cannot be listed,
-// the context ends, or the root configuration is missing or invalid.
+// logger, which must not be nil. Invalid items are excluded and reported in
+// content.Manifest.Errors. Scan fails only when the tree cannot be listed, the
+// context ends, or the root configuration is missing or invalid.
 func Scan(ctx context.Context, source content.Source, logger *slog.Logger) (*content.Manifest, error) {
 	started := time.Now()
 	files, err := source.Files(ctx)
@@ -136,34 +136,36 @@ func (s *scanner) read(name string) (data []byte, itemErr, fatal error) {
 	return data, nil, nil
 }
 
-func (s *scanner) root(tree *treeDir) (*content.Node, error) {
+// readConfig returns a directory's ".configuration", or nil when it has none.
+func (s *scanner) readConfig(tree *treeDir) (data []byte, itemErr, fatal error) {
 	if !tree.hasConfig {
-		return nil, fmt.Errorf("%w: missing %s", ErrInvalidRootConfig, content.ConfigurationFile)
+		return nil, nil, nil
 	}
-	data, itemErr, fatal := s.read(content.ConfigurationFile)
+	return s.read(path.Join(tree.path, content.ConfigurationFile))
+}
+
+// root validates the site configuration. Its required fields make a missing
+// or empty root ".configuration" invalid, which is fatal because every node
+// inherits the site theme.
+func (s *scanner) root(tree *treeDir) (*content.Node, error) {
+	data, itemErr, fatal := s.readConfig(tree)
 	if fatal != nil {
 		return nil, fatal
 	}
+	var config content.Config
+	if itemErr == nil {
+		config, itemErr = content.ParseConfig(content.LevelSite, data)
+	}
 	if itemErr != nil {
-		return nil, fmt.Errorf("%w: %w", ErrInvalidRootConfig, itemErr)
-	}
-	own, err := content.ParseConfig(data)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrInvalidRootConfig, err)
-	}
-	keys, err := content.ParseNodeKeys(own)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrInvalidRootConfig, err)
-	}
-	if keys.HasSlug || keys.HasOrder {
-		return nil, fmt.Errorf("%w: the root cannot set %q or %q", ErrInvalidRootConfig, content.KeySlug, content.KeyOrder)
+		return nil, fmt.Errorf("%w: %w", ErrInvalidRootConfig, content.ValidationError{Path: content.ConfigurationFile, Err: itemErr})
 	}
 	return &content.Node{
-		Kind:       content.KindDirectory,
-		SourcePath: ".",
-		Title:      keys.Title,
-		URLPath:    "/",
-		Config:     content.Cascade(nil, own),
+		Kind:        content.KindDirectory,
+		SourcePath:  ".",
+		Title:       config.Title,
+		Description: config.Description,
+		URLPath:     "/",
+		Theme:       config.Theme,
 	}, nil
 }
 
@@ -265,29 +267,20 @@ func (s *scanner) prepareDirectory(parent *content.Node, tree *treeDir) (*conten
 		s.report(tree.path, err)
 		return nil, nil
 	}
-	own := content.Config{}
-	if tree.hasConfig {
-		configPath := path.Join(tree.path, content.ConfigurationFile)
-		data, itemErr, fatal := s.read(configPath)
-		if fatal != nil {
-			return nil, fatal
-		}
-		if itemErr == nil {
-			own, itemErr = content.ParseConfig(data)
-		}
-		if itemErr != nil {
-			s.report(configPath, itemErr)
-			return nil, nil
-		}
+	data, itemErr, fatal := s.readConfig(tree)
+	if fatal != nil {
+		return nil, fatal
 	}
-	keys, err := content.ParseNodeKeys(own)
-	if err != nil {
-		s.report(path.Join(tree.path, content.ConfigurationFile), err)
+	var config content.Config
+	if itemErr == nil {
+		config, itemErr = content.ParseConfig(content.LevelDirectory, data)
+	}
+	if itemErr != nil {
+		s.report(path.Join(tree.path, content.ConfigurationFile), itemErr)
 		return nil, nil
 	}
-	node := &content.Node{Kind: content.KindDirectory, SourcePath: tree.path, Name: name, Config: content.Cascade(parent.Config, own)}
-	applyNodeKeys(node, name, keys)
-	node.URLPath = joinURL(parent.URLPath, node.Slug)
+	node := &content.Node{Kind: content.KindDirectory, SourcePath: tree.path, Name: name}
+	applyConfig(node, parent, name, config)
 	return node, nil
 }
 
@@ -308,21 +301,18 @@ func (s *scanner) prepareArticle(parent *content.Node, articlePath string) (*con
 	if fatal != nil {
 		return nil, fatal
 	}
-	var own content.Config
+	landing := name.Slug().String() == landingSlug
+	level := content.LevelArticle
+	if landing {
+		level = content.LevelLanding
+	}
+	var config content.Config
 	if itemErr == nil {
 		var frontmatter []byte
 		frontmatter, _, itemErr = content.SplitFrontmatter(data)
 		if itemErr == nil {
-			own, itemErr = content.ParseConfig(frontmatter)
+			config, itemErr = content.ParseConfig(level, frontmatter)
 		}
-	}
-	var keys content.NodeKeys
-	if itemErr == nil {
-		keys, itemErr = content.ParseNodeKeys(own)
-	}
-	landing := name.Slug().String() == landingSlug
-	if itemErr == nil && landing && (keys.HasSlug || keys.HasOrder) {
-		itemErr = fmt.Errorf("%w: a landing page cannot set %q or %q", content.ErrInvalidConfig, content.KeySlug, content.KeyOrder)
 	}
 	if itemErr != nil {
 		s.report(articlePath, itemErr)
@@ -334,30 +324,35 @@ func (s *scanner) prepareArticle(parent *content.Node, articlePath string) (*con
 		Name:       name,
 		Draft:      draft,
 		Landing:    landing,
-		Config:     content.Cascade(parent.Config, own),
 	}
 	if landing {
 		node.Title = parent.Title
-		if keys.HasTitle {
-			node.Title = keys.Title
+		if config.Title != "" {
+			node.Title = config.Title
 		}
+		node.Description = config.Description
 		node.URLPath = parent.URLPath
+		node.Theme = parent.Theme.Override(config.Theme)
 		return node, nil
 	}
-	applyNodeKeys(node, name, keys)
-	node.URLPath = joinURL(parent.URLPath, node.Slug)
+	applyConfig(node, parent, name, config)
 	return node, nil
 }
 
-func applyNodeKeys(node *content.Node, name content.Name, keys content.NodeKeys) {
+// applyConfig derives a non-landing node's display fields from its name and
+// own configuration, and resolves its theme from its parent's.
+func applyConfig(node, parent *content.Node, name content.Name, config content.Config) {
 	node.Title, node.Slug = name.Title(), name.Slug()
-	if keys.HasTitle {
-		node.Title = keys.Title
+	if config.Title != "" {
+		node.Title = config.Title
 	}
-	if keys.HasSlug {
-		node.Slug = keys.Slug
+	if config.Slug != (content.Slug{}) {
+		node.Slug = config.Slug
 	}
-	node.Order, node.Ordered = keys.Order, keys.HasOrder
+	node.Description = config.Description
+	node.Order, node.Ordered = config.Order, config.Ordered
+	node.Theme = parent.Theme.Override(config.Theme)
+	node.URLPath = joinURL(parent.URLPath, node.Slug)
 }
 
 func joinURL(parent string, slug content.Slug) string {

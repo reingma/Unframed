@@ -51,8 +51,8 @@ services consume.
   redelivered events.
 - Events say what a build contains, not what changed since the previous
   build. Notifications that must fire once per new article need state.
-- Rendering runs sequentially and is expected to dominate build cost; it
-  could be parallelized for large trees. `BenchmarkBuild` measures it
-  alongside `BenchmarkScan`.
+- Rendering runs sequentially and is expected to dominate build cost.
+  `BenchmarkBuild` measures it alongside `BenchmarkScan`. Optimizing it waits
+  for the full rendering feature, which will change its cost.
 - The [document contract](../specs/document-contract.md) is the canonical
   description of the documents.

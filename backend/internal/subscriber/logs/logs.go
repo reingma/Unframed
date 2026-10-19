@@ -6,9 +6,13 @@ import (
 	"log/slog"
 
 	"github.com/reingma/Unframed/backend/internal/event"
+	"github.com/reingma/Unframed/backend/internal/publish"
 )
 
-// Subscriber writes each event as a structured log record with its build ID.
+var _ publish.Subscriber = Subscriber{}
+
+// Subscriber is a publish.Subscriber that writes each event as a structured
+// log record with its build ID.
 // Published articles log at debug level so routine rebuilds stay quiet;
 // validation failures log as warnings.
 type Subscriber struct {

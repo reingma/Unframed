@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/reingma/Unframed/backend/internal/event"
+	"github.com/reingma/Unframed/backend/internal/publish"
 )
 
 var (
@@ -25,8 +26,10 @@ var (
 	ErrInvalidBuildID = errors.New("invalid build ID")
 )
 
-// Subscriber writes the events of each build as a JSON array in a report
-// file.
+var _ publish.Subscriber = (*Subscriber)(nil)
+
+// Subscriber is a publish.Subscriber that writes the events of each build as
+// a JSON array in a report file.
 type Subscriber struct {
 	dir string
 }

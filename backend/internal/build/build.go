@@ -15,9 +15,10 @@ import (
 	"github.com/reingma/Unframed/backend/internal/content/scan"
 	"github.com/reingma/Unframed/backend/internal/document"
 	"github.com/reingma/Unframed/backend/internal/event"
+	"github.com/reingma/Unframed/backend/internal/publish"
 )
 
-// ErrPublish wraps a publisher failure. Build still returns its result.
+// ErrPublish wraps a publishing failure. Build still returns its result.
 var ErrPublish = errors.New("publish build events")
 
 // Key identifies an envelope: a published article and its draft share a URL.
@@ -38,24 +39,25 @@ type Result struct {
 	Envelopes map[Key]document.Envelope
 }
 
-// Build scans source, renders every valid article and publishes one batch
-// of events: article.published for each published article and
-// validation.failed for each excluded item. Every log record carries the
+// Build scans source, renders every valid article and publishes the build's
+// events in one call: article.published for each published article and
+// validation.failed for each excluded item. A build without events publishes
+// nothing. Every log record carries the
 // build ID. Build fails when the scan fails; an invalid root configuration is
 // still published as a validation.failed event. When only publishing fails,
 // Build returns the result with an error wrapping ErrPublish.
-func Build(ctx context.Context, source content.Source, publisher event.Publisher, logger *slog.Logger) (*Result, error) {
+func Build(ctx context.Context, source content.Source, publisher publish.Publisher, logger *slog.Logger) (*Result, error) {
 	started := time.Now()
 	buildID := rand.Text()
 	logger = logger.With("build_id", buildID)
-	batch := event.Batch{BuildID: buildID, Time: started.UTC()}
+	events := &events{buildID: buildID, time: started.UTC()}
 
 	manifest, err := scan.Scan(ctx, source, logger)
 	if err != nil {
 		var rootErr content.ValidationError
 		if errors.Is(err, scan.ErrInvalidRootConfig) && errors.As(err, &rootErr) {
-			batch.Events = []event.Event{validationFailed(rootErr)}
-			if publishErr := publish(ctx, publisher, batch); publishErr != nil {
+			events.validationFailed(rootErr)
+			if publishErr := events.publish(ctx, publisher); publishErr != nil {
 				err = errors.Join(err, publishErr)
 			}
 		}
@@ -74,27 +76,45 @@ func Build(ctx context.Context, source content.Source, publisher event.Publisher
 		}
 		envelopes[Key{URLPath: article.URLPath, Draft: article.Draft}] = document.NewEnvelope(article, html)
 		if !article.Draft {
-			batch.Events = append(batch.Events, event.Event{Kind: event.KindArticlePublished, Path: article.SourcePath, URLPath: article.URLPath})
+			events.add(event.Event{Kind: event.KindArticlePublished, Path: article.SourcePath, URLPath: article.URLPath})
 		}
 	}
 	for _, validationErr := range manifest.Errors {
-		batch.Events = append(batch.Events, validationFailed(validationErr))
+		events.validationFailed(validationErr)
 	}
 
 	result := &Result{BuildID: buildID, Content: manifest, Manifest: document.NewManifest(manifest.Root), Envelopes: envelopes}
-	err = publish(ctx, publisher, batch)
+	err = events.publish(ctx, publisher)
 	logger.InfoContext(ctx, "content built",
-		"envelopes", len(envelopes), "events", len(batch.Events), "validation_errors", len(manifest.Errors),
+		"envelopes", len(envelopes), "events", len(events.list), "validation_errors", len(manifest.Errors),
 		"publish_error", err != nil, "duration", time.Since(started))
 	return result, err
 }
 
-func validationFailed(err content.ValidationError) event.Event {
-	return event.Event{Kind: event.KindValidationFailed, Path: err.Path, Message: err.Err.Error()}
+// events collects a build's events, stamping each with the build's identity.
+type events struct {
+	buildID string
+	time    time.Time
+	list    []event.Event
 }
 
-func publish(ctx context.Context, publisher event.Publisher, batch event.Batch) error {
-	if err := publisher.Publish(ctx, batch); err != nil {
+func (e *events) add(ev event.Event) {
+	ev.SchemaVersion = event.SchemaVersion
+	ev.ID = fmt.Sprintf("%s-%d", e.buildID, len(e.list)+1)
+	ev.BuildID = e.buildID
+	ev.Time = e.time
+	e.list = append(e.list, ev)
+}
+
+func (e *events) validationFailed(err content.ValidationError) {
+	e.add(event.Event{Kind: event.KindValidationFailed, Path: err.Path, Message: err.Err.Error()})
+}
+
+func (e *events) publish(ctx context.Context, publisher publish.Publisher) error {
+	if len(e.list) == 0 {
+		return nil
+	}
+	if err := publisher.Publish(ctx, e.list); err != nil {
 		return fmt.Errorf("%w: %w", ErrPublish, err)
 	}
 	return nil

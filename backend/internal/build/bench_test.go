@@ -7,7 +7,8 @@ import (
 
 	"github.com/reingma/Unframed/backend/internal/content"
 	"github.com/reingma/Unframed/backend/internal/content/contenttest"
-	"github.com/reingma/Unframed/backend/internal/event"
+	"github.com/reingma/Unframed/backend/internal/publish"
+	"github.com/reingma/Unframed/backend/internal/subscriber/logs"
 )
 
 // BenchmarkBuild builds the 1,000-article tree of scan's BenchmarkScan with
@@ -24,7 +25,7 @@ func BenchmarkBuild(b *testing.B) {
 				"+++\ntitle = \"An article\"\ndescription = \"A summary\"\n[math]\nengine = \"katex\"\n+++\n" + body
 		}
 	}
-	publisher := event.LogPublisher{Logger: quiet()}
+	publisher := publish.NewLocal(logs.Subscriber{Logger: quiet()})
 	for name, source := range map[string]content.Source{
 		"fs":     contenttest.NewFS(b, files),
 		"memory": contenttest.MemSource(files),

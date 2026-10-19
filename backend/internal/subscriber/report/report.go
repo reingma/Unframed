@@ -1,4 +1,6 @@
-package event
+// Package report is a local event subscriber that writes one JSON report file
+// per build, in a directory outside the content tree.
+package report
 
 import (
 	"context"
@@ -10,27 +12,29 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/reingma/Unframed/backend/internal/event"
 )
 
 var (
-	// ErrReportInsideContent reports a report directory inside the content
-	// root, where report files would become content.
-	ErrReportInsideContent = errors.New("report directory is inside the content root")
+	// ErrInsideContent reports a report directory inside the content root,
+	// where report files would become content.
+	ErrInsideContent = errors.New("report directory is inside the content root")
 	// ErrInvalidBuildID reports a build ID that is not safe as a file name
-	// component.
+	// component, or events from more than one build.
 	ErrInvalidBuildID = errors.New("invalid build ID")
 )
 
-// ReportPublisher writes each batch as a JSON report file in a directory
-// outside the content tree.
-type ReportPublisher struct {
+// Subscriber writes the events of each build as a JSON array in a report
+// file.
+type Subscriber struct {
 	dir string
 }
 
-// NewReportPublisher returns a publisher writing to dir, creating it if
+// New returns a subscriber writing to dir, creating it if
 // needed. Both paths are resolved through symbolic links, and dir must not be
 // contentRoot or inside it; a rejected dir is not created.
-func NewReportPublisher(dir, contentRoot string) (*ReportPublisher, error) {
+func New(dir, contentRoot string) (*Subscriber, error) {
 	resolvedDir, err := resolve(dir)
 	if err != nil {
 		return nil, fmt.Errorf("resolve report directory: %w", err)
@@ -44,12 +48,12 @@ func NewReportPublisher(dir, contentRoot string) (*ReportPublisher, error) {
 		return nil, fmt.Errorf("compare report directory with content root: %w", err)
 	}
 	if rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-		return nil, fmt.Errorf("%w: %s is inside %s", ErrReportInsideContent, resolvedDir, resolvedRoot)
+		return nil, fmt.Errorf("%w: %s is inside %s", ErrInsideContent, resolvedDir, resolvedRoot)
 	}
 	if err := os.MkdirAll(resolvedDir, 0o755); err != nil {
 		return nil, fmt.Errorf("create report directory: %w", err)
 	}
-	return &ReportPublisher{dir: resolvedDir}, nil
+	return &Subscriber{dir: resolvedDir}, nil
 }
 
 // resolve returns the absolute, symlink-free form of path. Missing trailing
@@ -88,21 +92,30 @@ func validBuildID(id string) bool {
 	return true
 }
 
-// Publish writes build-<time>-<build ID>.json atomically: readers see either
-// no file or the complete report.
-func (p *ReportPublisher) Publish(ctx context.Context, batch Batch) error {
+// Receive writes build-<time>-<build ID>.json atomically: readers see either
+// no file or the complete report. A build without events writes no file.
+func (s *Subscriber) Receive(ctx context.Context, events []event.Event) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if !validBuildID(batch.BuildID) {
-		return fmt.Errorf("%w: %q", ErrInvalidBuildID, batch.BuildID)
+	if len(events) == 0 {
+		return nil
 	}
-	data, err := json.Marshal(batch, jsontext.WithIndent("  "))
+	first := events[0]
+	if !validBuildID(first.BuildID) {
+		return fmt.Errorf("%w: %q", ErrInvalidBuildID, first.BuildID)
+	}
+	for _, e := range events[1:] {
+		if e.BuildID != first.BuildID {
+			return fmt.Errorf("%w: events from builds %q and %q", ErrInvalidBuildID, first.BuildID, e.BuildID)
+		}
+	}
+	data, err := json.Marshal(events, jsontext.WithIndent("  "))
 	if err != nil {
 		return fmt.Errorf("encode build report: %w", err)
 	}
-	name := fmt.Sprintf("build-%s-%s.json", batch.Time.UTC().Format("20060102T150405.000000000Z"), batch.BuildID)
-	tmp, err := os.CreateTemp(p.dir, ".build-*.tmp")
+	name := fmt.Sprintf("build-%s-%s.json", first.Time.UTC().Format("20060102T150405.000000000Z"), first.BuildID)
+	tmp, err := os.CreateTemp(s.dir, ".build-*.tmp")
 	if err != nil {
 		return fmt.Errorf("write build report: %w", err)
 	}
@@ -114,7 +127,7 @@ func (p *ReportPublisher) Publish(ctx context.Context, batch Batch) error {
 	if err := tmp.Close(); err != nil {
 		return fmt.Errorf("write build report: %w", err)
 	}
-	if err := os.Rename(tmp.Name(), filepath.Join(p.dir, name)); err != nil {
+	if err := os.Rename(tmp.Name(), filepath.Join(s.dir, name)); err != nil {
 		return fmt.Errorf("write build report: %w", err)
 	}
 	return nil

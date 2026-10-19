@@ -25,11 +25,20 @@ services consume.
   if content ever comes from a less trusted source.
 - The scan keeps each article's Markdown body from its single read, so
   frontmatter and body always come from the same file contents.
-- A build publishes one batch of events through an `event.Publisher`:
-  `article.published` and `validation.failed`, all carrying the build ID that
-  also tags its log records. Local publishers log events and write report
-  files; `event.Fanout` combines publishers. Reports must be outside the
-  content root, so they can never become content.
+- A build emits `article.published` and `validation.failed` events. Each
+  event is self-contained and versioned (`schemaVersion`, a unique `id`, the
+  `buildId` that also tags the build's log records, and a time), because the
+  production path is S3 event → build → SNS or EventBridge → subscribers such
+  as email Lambdas, and a bus delivers events one at a time, possibly more
+  than once.
+- The event contract (`event`) is separate from delivery (`publish`). A build
+  hands its events to one `publish.Publisher` in a single call, which maps to
+  SNS `PublishBatch` or EventBridge `PutEvents`. Reaching several consumers is
+  the bus's job, not the build's: locally `publish.Local` delivers to
+  in-process subscribers (logs and report files); in production a bus
+  publisher replaces it and consumers decode the event contract in their own
+  process. Reports must be outside the content root, so they can never become
+  content.
 - A publishing failure does not discard a build: the caller receives the
   result and an error wrapping `build.ErrPublish`, and decides the policy.
 
@@ -38,6 +47,8 @@ services consume.
 - Readers of the documents must check `schemaVersion` and `body.kind`.
 - Raw HTML in Markdown is dropped; allowing it later is a renderer option and
   a security decision.
+- Consumers must check the event `schemaVersion` and may use `id` to drop
+  redelivered events.
 - Events say what a build contains, not what changed since the previous
   build. Notifications that must fire once per new article need state.
 - Rendering runs sequentially and is expected to dominate build cost; it

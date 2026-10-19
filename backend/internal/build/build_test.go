@@ -19,6 +19,9 @@ import (
 	"github.com/reingma/Unframed/backend/internal/content/scan"
 	"github.com/reingma/Unframed/backend/internal/document"
 	"github.com/reingma/Unframed/backend/internal/event"
+	"github.com/reingma/Unframed/backend/internal/publish"
+	"github.com/reingma/Unframed/backend/internal/subscriber/logs"
+	"github.com/reingma/Unframed/backend/internal/subscriber/report"
 )
 
 const validRoot = "title = \"Unframed\"\n[theme]\naccent = \"#336699\"\nbackground = \"#FFFFFF\"\ntext = \"#111111\"\n"
@@ -34,12 +37,12 @@ var tree = map[string]string{
 }
 
 type recorder struct {
-	batches []event.Batch
-	err     error
+	published [][]event.Event
+	err       error
 }
 
-func (r *recorder) Publish(_ context.Context, batch event.Batch) error {
-	r.batches = append(r.batches, batch)
+func (r *recorder) Publish(_ context.Context, events []event.Event) error {
+	r.published = append(r.published, events)
 	return r.err
 }
 
@@ -73,15 +76,17 @@ func TestBuild(t *testing.T) {
 				t.Fatalf("draft envelope = %+v", draft)
 			}
 
-			if len(publisher.batches) != 1 {
-				t.Fatalf("published %d batches, want 1", len(publisher.batches))
+			if len(publisher.published) != 1 {
+				t.Fatalf("published %d times, want 1", len(publisher.published))
 			}
-			batch := publisher.batches[0]
-			if batch.BuildID == "" || batch.BuildID != result.BuildID {
-				t.Fatalf("batch build ID %q, result build ID %q", batch.BuildID, result.BuildID)
-			}
+			events := publisher.published[0]
+			ids := map[string]bool{}
 			var published, failed []string
-			for _, e := range batch.Events {
+			for _, e := range events {
+				if e.SchemaVersion != event.SchemaVersion || e.BuildID != result.BuildID || e.Time.IsZero() || e.Time != events[0].Time || e.ID == "" || ids[e.ID] {
+					t.Fatalf("event %+v: want schema version, the build's ID and time, and a unique ID", e)
+				}
+				ids[e.ID] = true
 				switch e.Kind {
 				case event.KindArticlePublished:
 					published = append(published, e.URLPath)
@@ -131,10 +136,10 @@ func TestBuildPublishesFatalRootConfig(t *testing.T) {
 	if result != nil || !errors.Is(err, scan.ErrInvalidRootConfig) {
 		t.Fatalf("Build = %v, %v; want ErrInvalidRootConfig", result, err)
 	}
-	if len(publisher.batches) != 1 {
-		t.Fatalf("published %d batches, want 1", len(publisher.batches))
+	if len(publisher.published) != 1 {
+		t.Fatalf("published %d times, want 1", len(publisher.published))
 	}
-	events := publisher.batches[0].Events
+	events := publisher.published[0]
 	if len(events) != 1 || events[0].Kind != event.KindValidationFailed || events[0].Path != content.ConfigurationFile || events[0].Message == "" {
 		t.Fatalf("events = %+v", events)
 	}
@@ -158,15 +163,25 @@ func TestBuildCanceled(t *testing.T) {
 	if _, err := Build(ctx, contenttest.MemSource(tree), publisher, quiet()); !errors.Is(err, context.Canceled) {
 		t.Fatalf("error = %v, want context.Canceled", err)
 	}
-	if len(publisher.batches) != 0 {
-		t.Fatalf("a canceled build published %d batches", len(publisher.batches))
+	if len(publisher.published) != 0 {
+		t.Fatalf("a canceled build published %d times", len(publisher.published))
+	}
+}
+
+func TestBuildWithoutEventsPublishesNothing(t *testing.T) {
+	publisher := &recorder{}
+	if _, err := Build(context.Background(), contenttest.MemSource{".configuration": validRoot}, publisher, quiet()); err != nil {
+		t.Fatal(err)
+	}
+	if len(publisher.published) != 0 {
+		t.Fatalf("an empty build published %v", publisher.published)
 	}
 }
 
 func TestBuildLogsCarryBuildID(t *testing.T) {
 	var out bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&out, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	result, err := Build(context.Background(), contenttest.MemSource(tree), event.LogPublisher{Logger: logger}, logger)
+	result, err := Build(context.Background(), contenttest.MemSource(tree), publish.NewLocal(logs.Subscriber{Logger: logger}), logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -189,14 +204,15 @@ func TestBuildLogsCarryBuildID(t *testing.T) {
 }
 
 // TestBuildReportStaysOutsideContent rebuilds a filesystem tree with a report
-// publisher and checks that reports never become content.
+// subscriber and checks that reports never become content.
 func TestBuildReportStaysOutsideContent(t *testing.T) {
 	root := contenttest.WriteTree(t, tree)
 	reports := filepath.Join(t.TempDir(), "reports")
-	publisher, err := event.NewReportPublisher(reports, root)
+	subscriber, err := report.New(reports, root)
 	if err != nil {
 		t.Fatal(err)
 	}
+	publisher := publish.NewLocal(subscriber)
 	source := contenttest.OpenFS(t, root)
 	first, err := Build(context.Background(), source, publisher, quiet())
 	if err != nil {
@@ -219,9 +235,9 @@ func TestBuildReportStaysOutsideContent(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		var batch event.Batch
-		if err := json.Unmarshal(data, &batch); err != nil || (batch.BuildID != first.BuildID && batch.BuildID != second.BuildID) {
-			t.Fatalf("report %s = %+v (%v)", entry.Name(), batch, err)
+		var events []event.Event
+		if err := json.Unmarshal(data, &events); err != nil || len(events) == 0 || (events[0].BuildID != first.BuildID && events[0].BuildID != second.BuildID) {
+			t.Fatalf("report %s = %+v (%v)", entry.Name(), events, err)
 		}
 	}
 }

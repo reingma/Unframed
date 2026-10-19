@@ -1,13 +1,13 @@
-// Package event is the build fanout boundary: builds publish what they
-// produced, and publishers deliver it. Local publishers log events and write
-// report files; a notification service can implement Publisher later.
+// Package event is the contract of the facts a build emits. Each event is
+// self-contained, because a message bus delivers events one at a time to
+// consumers that may run in other processes.
 package event
 
-import (
-	"context"
-	"errors"
-	"time"
-)
+import "time"
+
+// SchemaVersion is the event schema version. Consumers reject events with a
+// missing or unknown version; within a version, members are additive.
+const SchemaVersion = 1
 
 // Kind names what an event reports.
 type Kind string
@@ -21,40 +21,17 @@ const (
 
 // Event is one fact about a build.
 type Event struct {
-	Kind Kind `json:"kind"`
+	SchemaVersion int `json:"schemaVersion"`
+	// ID is unique per event, so consumers can drop redelivered duplicates.
+	ID string `json:"id"`
+	// BuildID is shared by every event of a build and its log records.
+	BuildID string    `json:"buildId"`
+	Time    time.Time `json:"time"`
+	Kind    Kind      `json:"kind"`
 	// Path is the item's slash-separated path in the content source.
 	Path string `json:"path"`
 	// URLPath is set for KindArticlePublished.
 	URLPath string `json:"urlPath,omitempty"`
 	// Message is the validation error for KindValidationFailed.
 	Message string `json:"message,omitempty"`
-}
-
-// Batch is every event of one build.
-type Batch struct {
-	BuildID string    `json:"buildId"`
-	Time    time.Time `json:"time"`
-	Events  []Event   `json:"events"`
-}
-
-// Publisher delivers a build's events. Publish honors cancellation and
-// deadlines, and a failure means the batch may not have been delivered.
-type Publisher interface {
-	Publish(ctx context.Context, batch Batch) error
-}
-
-// Fanout returns a Publisher that delivers each batch to every publisher,
-// even after one fails, and joins their errors.
-func Fanout(publishers ...Publisher) Publisher {
-	return fanout(publishers)
-}
-
-type fanout []Publisher
-
-func (f fanout) Publish(ctx context.Context, batch Batch) error {
-	var errs []error
-	for _, publisher := range f {
-		errs = append(errs, publisher.Publish(ctx, batch))
-	}
-	return errors.Join(errs...)
 }

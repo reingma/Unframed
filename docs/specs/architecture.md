@@ -37,13 +37,21 @@ and future rendering boundary.
   which scans a `Source`, renders every valid article, drafts included, into
   envelopes, and publishes the build's events. Each build has a random build
   ID on its log records and events.
-- [backend/internal/event](../../backend/internal/event/event.go) owns the fanout
-  boundary: the `Publisher` interface, `article.published` and
-  `validation.failed` events, a structured-log publisher, a JSON report
-  publisher that refuses directories inside the content root and build IDs
-  that are not safe file names, and `Fanout`.
+- [backend/internal/event](../../backend/internal/event/event.go) owns the
+  event contract: self-contained, versioned `article.published` and
+  `validation.failed` events that consumers in other processes can decode.
+- [backend/internal/publish](../../backend/internal/publish/publish.go) owns the
+  build's single outbound boundary, `Publisher`, which puts a build's events on
+  a bus. `Local` is the in-process bus; it delivers to every `Subscriber` and
+  joins their errors. In production an SNS or EventBridge publisher is meant to
+  replace it, and subscribers such as email Lambdas consume the bus outside
+  this process; neither exists yet.
+- [backend/internal/subscriber](../../backend/internal/subscriber) holds the
+  local subscribers: structured logs, and JSON report files that refuse
+  directories inside the content root and build IDs that are not safe file
+  names.
   [ADR 0005](../decisions/0005-document-envelope-rendering-and-fanout.md)
-  records the document, rendering and fanout rationale. The server does not
+  records the document, rendering and event rationale. The server does not
   build content yet.
 - [backend/internal/perf](../../backend/internal/perf) and
   [backend/cmd/perf](../../backend/cmd/perf) own the performance measurement
@@ -125,6 +133,8 @@ Behavior is exercised by the [health](../../backend/internal/health/handler_test
 [document](../../backend/internal/document),
 [build](../../backend/internal/build),
 [event](../../backend/internal/event),
+[publish](../../backend/internal/publish),
+[subscriber](../../backend/internal/subscriber),
 [router](../../backend/internal/router/router_test.go),
 [communication](../../frontend/src/lib/backend.test.ts),
 [presentation](../../frontend/src/app/health-status.test.tsx) and

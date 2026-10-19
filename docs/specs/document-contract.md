@@ -1,7 +1,8 @@
 # Document contract
 
 Go turns the content tree into JSON documents for the frontend: one envelope
-per article and one public manifest. This page is their canonical description;
+per article and one public manifest. A build also emits [events](#build-events)
+for subscribers. This page is their canonical description;
 [document.go](../../backend/internal/document/document.go) implements it and
 [ADR 0005](../decisions/0005-document-envelope-rendering-and-fanout.md) records
 the rationale. The [authoring schema](content-authoring.md) describes the input.
@@ -76,3 +77,28 @@ an envelope.
   `hasIndex: true` and that page's envelope at its `urlPath`. Only directories
   have `children`, listed in navigation order; `children` is always an array.
 - The manifest never contains drafts, invalid items or validation errors.
+
+## Build events
+
+A build emits one event per published article and one per validation error;
+[event.go](../../backend/internal/event/event.go) implements them. Events
+follow the [versioning](#versioning) rules with their own `schemaVersion`,
+currently `1`. Each event is self-contained, since a bus delivers events one
+at a time.
+
+```json
+{
+  "schemaVersion": 1, "id": "Q2X7…-1", "buildId": "Q2X7…",
+  "time": "2026-10-18T03:00:00Z", "kind": "article.published",
+  "path": "Mathematics/On-Martingales.md", "urlPath": "/mathematics/on-martingales"
+}
+```
+
+- `kind` is `article.published` or `validation.failed`.
+- `id` is unique per event; a consumer may receive an event more than once and
+  can use `id` to drop duplicates.
+- `buildId` and `time` are shared by every event of a build.
+- `path` is the item's slash-separated path in the content source. `urlPath`
+  is present for `article.published`, `message` (the validation error) for
+  `validation.failed`.
+- Events report what a build contains, not what changed since the last build.

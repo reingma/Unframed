@@ -136,6 +136,12 @@ func TestScanValidTree(t *testing.T) {
 			if !landing.Landing || landing.URLPath != "/mathematics" || landing.Title != "Mathematics" || landing.Description != "Notes on mathematics" {
 				t.Fatalf("landing = %+v", landing)
 			}
+			if got := string(martingales.Body); got != "# Body\n" {
+				t.Fatalf("body after frontmatter = %q", got)
+			}
+			if got := string(articles["Mathematics/Linear-Algebra.md"].Body); got != "No frontmatter\n" {
+				t.Fatalf("body without frontmatter = %q", got)
+			}
 		})
 	}
 }

@@ -307,9 +307,10 @@ func (s *scanner) prepareArticle(parent *content.Node, articlePath string) (*con
 		level = content.LevelLanding
 	}
 	var config content.Config
+	var body []byte
 	if itemErr == nil {
 		var frontmatter []byte
-		frontmatter, _, itemErr = content.SplitFrontmatter(data)
+		frontmatter, body, itemErr = content.SplitFrontmatter(data)
 		if itemErr == nil {
 			config, itemErr = content.ParseConfig(level, frontmatter)
 		}
@@ -324,6 +325,7 @@ func (s *scanner) prepareArticle(parent *content.Node, articlePath string) (*con
 		Name:       name,
 		Draft:      draft,
 		Landing:    landing,
+		Body:       body,
 	}
 	if landing {
 		node.Title = parent.Title

@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Content builds: each valid article, drafts included, is rendered from
+  Markdown to safe HTML (CommonMark with GFM tables, strikethrough, autolinks
+  and task lists; raw HTML dropped) into a versioned JSON envelope with its
+  metadata, resolved configuration and body, alongside a public manifest of
+  the site settings and published navigation. A build publishes
+  versioned `article.published` and `validation.failed` events, correlated by
+  build ID, through a replaceable publisher; locally, an in-process bus
+  delivers them to structured logs and to JSON report files kept outside the
+  content tree.
+  The [document contract](docs/specs/document-contract.md) documents the format.
 - A `perf gate` merge check for performance history, run by a `pull_request`
   CI job and locally via `make perf-gate`: every PR must append a
   `perf/history/` record, committed records are immutable, and the newest

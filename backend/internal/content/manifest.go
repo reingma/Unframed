@@ -31,6 +31,9 @@ type Node struct {
 	// Theme is the resolved, complete theme after the root → directory →
 	// article cascade.
 	Theme Theme
+	// Body is an article's Markdown after its frontmatter, read in the same
+	// pass as its configuration; nil for directories.
+	Body []byte
 	// Index is a directory's published landing article, if any.
 	Index *Node
 	// Children are a directory's published nav entries, ordered by order

@@ -70,22 +70,54 @@ func TestReportPublisherRejectsDirectoryInsideContent(t *testing.T) {
 		t.Fatal(err)
 	}
 	cases := map[string]string{
-		"root":           contentRoot,
-		"nested":         filepath.Join(contentRoot, "reports"),
-		"hidden":         filepath.Join(contentRoot, ".reports"),
-		"relative":       filepath.Join(contentRoot, "Essays", "..", "out"),
-		"symlink inside": link,
+		"root":                  contentRoot,
+		"nested":                filepath.Join(contentRoot, "reports"),
+		"hidden":                filepath.Join(contentRoot, ".reports"),
+		"relative":              filepath.Join(contentRoot, "Essays", "..", "out"),
+		"symlink inside":        link,
+		"missing under symlink": filepath.Join(link, "new", "reports"),
 	}
 	for name, dir := range cases {
 		t.Run(name, func(t *testing.T) {
+			_, statErr := os.Stat(dir)
+			existed := statErr == nil
 			if _, err := NewReportPublisher(dir, contentRoot); !errors.Is(err, ErrReportInsideContent) {
 				t.Fatalf("NewReportPublisher(%s) error = %v, want ErrReportInsideContent", dir, err)
+			}
+			if _, err := os.Stat(dir); !existed && !errors.Is(err, os.ErrNotExist) {
+				t.Fatalf("rejected report directory %s was created (stat error %v)", dir, err)
 			}
 		})
 	}
 	sibling := filepath.Join(base, "content-reports")
 	if _, err := NewReportPublisher(sibling, contentRoot); err != nil {
 		t.Fatalf("a sibling sharing the root's name prefix was rejected: %v", err)
+	}
+}
+
+func TestReportPublisherRejectsUnsafeBuildID(t *testing.T) {
+	base := t.TempDir()
+	reports := filepath.Join(base, "a", "reports")
+	publisher, err := NewReportPublisher(reports, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{"", "../../x", "a/b", `a\b`, "..", "id.json"} {
+		unsafe := batch
+		unsafe.BuildID = id
+		if err := publisher.Publish(context.Background(), unsafe); !errors.Is(err, ErrInvalidBuildID) {
+			t.Errorf("Publish(BuildID %q) error = %v, want ErrInvalidBuildID", id, err)
+		}
+	}
+	var written []string
+	err = filepath.WalkDir(base, func(path string, d os.DirEntry, err error) error {
+		if err == nil && !d.IsDir() {
+			written = append(written, path)
+		}
+		return err
+	})
+	if err != nil || len(written) != 0 {
+		t.Fatalf("files written for rejected build IDs: %v (walk error %v)", written, err)
 	}
 }
 

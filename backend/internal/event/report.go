@@ -6,14 +6,20 @@ import (
 	"encoding/json/v2"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 )
 
-// ErrReportInsideContent reports a report directory inside the content root,
-// where report files would become content.
-var ErrReportInsideContent = errors.New("report directory is inside the content root")
+var (
+	// ErrReportInsideContent reports a report directory inside the content
+	// root, where report files would become content.
+	ErrReportInsideContent = errors.New("report directory is inside the content root")
+	// ErrInvalidBuildID reports a build ID that is not safe as a file name
+	// component.
+	ErrInvalidBuildID = errors.New("invalid build ID")
+)
 
 // ReportPublisher writes each batch as a JSON report file in a directory
 // outside the content tree.
@@ -21,13 +27,10 @@ type ReportPublisher struct {
 	dir string
 }
 
-// NewReportPublisher creates dir if needed and returns a publisher writing to
-// it. Both paths are resolved through symbolic links, and dir must not be
-// contentRoot or inside it.
+// NewReportPublisher returns a publisher writing to dir, creating it if
+// needed. Both paths are resolved through symbolic links, and dir must not be
+// contentRoot or inside it; a rejected dir is not created.
 func NewReportPublisher(dir, contentRoot string) (*ReportPublisher, error) {
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return nil, fmt.Errorf("create report directory: %w", err)
-	}
 	resolvedDir, err := resolve(dir)
 	if err != nil {
 		return nil, fmt.Errorf("resolve report directory: %w", err)
@@ -43,15 +46,46 @@ func NewReportPublisher(dir, contentRoot string) (*ReportPublisher, error) {
 	if rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
 		return nil, fmt.Errorf("%w: %s is inside %s", ErrReportInsideContent, resolvedDir, resolvedRoot)
 	}
+	if err := os.MkdirAll(resolvedDir, 0o755); err != nil {
+		return nil, fmt.Errorf("create report directory: %w", err)
+	}
 	return &ReportPublisher{dir: resolvedDir}, nil
 }
 
+// resolve returns the absolute, symlink-free form of path. Missing trailing
+// components are kept as written, since they cannot be links yet.
 func resolve(path string) (string, error) {
 	abs, err := filepath.Abs(path)
 	if err != nil {
 		return "", err
 	}
-	return filepath.EvalSymlinks(abs)
+	missing := ""
+	for {
+		resolved, err := filepath.EvalSymlinks(abs)
+		if err == nil {
+			return filepath.Join(resolved, missing), nil
+		}
+		parent := filepath.Dir(abs)
+		if !errors.Is(err, fs.ErrNotExist) || parent == abs {
+			return "", err
+		}
+		missing = filepath.Join(filepath.Base(abs), missing)
+		abs = parent
+	}
+}
+
+// validBuildID reports whether id is nonempty and contains only ASCII letters,
+// digits, '-' and '_', so it cannot change the report's directory.
+func validBuildID(id string) bool {
+	if id == "" {
+		return false
+	}
+	for _, r := range id {
+		if !('a' <= r && r <= 'z' || 'A' <= r && r <= 'Z' || '0' <= r && r <= '9' || r == '-' || r == '_') {
+			return false
+		}
+	}
+	return true
 }
 
 // Publish writes build-<time>-<build ID>.json atomically: readers see either
@@ -59,6 +93,9 @@ func resolve(path string) (string, error) {
 func (p *ReportPublisher) Publish(ctx context.Context, batch Batch) error {
 	if err := ctx.Err(); err != nil {
 		return err
+	}
+	if !validBuildID(batch.BuildID) {
+		return fmt.Errorf("%w: %q", ErrInvalidBuildID, batch.BuildID)
 	}
 	data, err := json.Marshal(batch, jsontext.WithIndent("  "))
 	if err != nil {

@@ -40,7 +40,8 @@ and future rendering boundary.
 - [backend/internal/event](../../backend/internal/event/event.go) owns the fanout
   boundary: the `Publisher` interface, `article.published` and
   `validation.failed` events, a structured-log publisher, a JSON report
-  publisher that refuses directories inside the content root, and `Fanout`.
+  publisher that refuses directories inside the content root and build IDs
+  that are not safe file names, and `Fanout`.
   [ADR 0005](../decisions/0005-document-envelope-rendering-and-fanout.md)
   records the document, rendering and fanout rationale. The server does not
   build content yet.

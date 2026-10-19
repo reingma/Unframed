@@ -40,8 +40,8 @@ services consume.
   a security decision.
 - Events say what a build contains, not what changed since the previous
   build. Notifications that must fire once per new article need state.
-- Building 1,000 small articles from memory takes about 20 ms on the ENG-35
-  development VM, against about 3 ms to scan them; rendering dominates.
-  Rendering runs sequentially and could be parallelized for large trees.
+- Rendering runs sequentially and is expected to dominate build cost; it
+  could be parallelized for large trees. `BenchmarkBuild` measures it
+  alongside `BenchmarkScan`.
 - The [document contract](../specs/document-contract.md) is the canonical
   description of the documents.

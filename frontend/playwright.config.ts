@@ -14,7 +14,10 @@ export default defineConfig({
     {
       command: "../backend/bin/server",
       url: "http://127.0.0.1:18080/healthcheck",
-      env: { BACKEND_ADDR: "127.0.0.1:18080" },
+      env: {
+        BACKEND_ADDR: "127.0.0.1:18080",
+        CONTENT_ROOT: "../examples/site",
+      },
       reuseExistingServer: false,
       gracefulShutdown: { signal: "SIGTERM", timeout: 5_000 },
     },

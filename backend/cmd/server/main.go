@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -10,7 +11,14 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/reingma/Unframed/backend/internal/api"
+	"github.com/reingma/Unframed/backend/internal/content"
+	"github.com/reingma/Unframed/backend/internal/publish"
+	"github.com/reingma/Unframed/backend/internal/rebuild"
 	"github.com/reingma/Unframed/backend/internal/router"
+	"github.com/reingma/Unframed/backend/internal/snapshot"
+	"github.com/reingma/Unframed/backend/internal/subscriber/logs"
+	"github.com/reingma/Unframed/backend/internal/watch"
 )
 
 func main() {
@@ -23,21 +31,52 @@ func main() {
 }
 
 func run(ctx context.Context) error {
+	logger := slog.Default()
 	addr := os.Getenv("BACKEND_ADDR")
 	if addr == "" {
 		addr = ":8080"
 	}
+	root := os.Getenv("CONTENT_ROOT")
+	if root == "" {
+		return errors.New("CONTENT_ROOT is required: set it to the content directory")
+	}
+	source, err := content.OpenFS(root)
+	if err != nil {
+		return fmt.Errorf("open CONTENT_ROOT: %w", err)
+	}
+	defer source.Close()
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	store := &snapshot.Store{}
+	publisher := publish.NewLocal(logs.Subscriber{Logger: logger})
+	builder := rebuild.New(store, rebuild.FromSource(source, publisher, logger), logger)
+	if err := builder.Start(ctx); err != nil {
+		return err
+	}
+	builderDone := make(chan struct{})
+	go func() { builder.Run(ctx); close(builderDone) }()
+	defer func() { cancel(); <-builderDone }()
+
+	result := make(chan error, 2)
+	go func() {
+		if err := builder.Follow(ctx, watch.New(root, watch.Debounce, logger)); err != nil {
+			result <- err
+		}
+	}()
+
+	handlers := api.New(store, builder,
+		api.NewToken(os.Getenv("PREVIEW_TOKEN")), api.NewToken(os.Getenv("ADMIN_TOKEN")), logger)
 	server := &http.Server{
 		Addr:              addr,
-		Handler:           router.New(),
+		Handler:           api.Observe(router.New(handlers), logger),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
 		WriteTimeout:      10 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
-	result := make(chan error, 1)
 	go func() {
-		slog.Info("starting backend", "address", addr)
+		logger.Info("starting backend", "address", addr, "content_root", root)
 		result <- server.ListenAndServe()
 	}()
 	select {
@@ -45,6 +84,7 @@ func run(ctx context.Context) error {
 		if errors.Is(err, http.ErrServerClosed) {
 			return nil
 		}
+		_ = server.Close()
 		return err
 	case <-ctx.Done():
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

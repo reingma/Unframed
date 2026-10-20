@@ -7,7 +7,7 @@ setup:
 	cd frontend && npm ci
 
 dev-backend:
-	cd backend && GOEXPERIMENT=jsonv2 go run ./cmd/server
+	cd backend && CONTENT_ROOT=$${CONTENT_ROOT:-../examples/site} GOEXPERIMENT=jsonv2 go run ./cmd/server
 
 dev-frontend:
 	cd frontend && npm run dev

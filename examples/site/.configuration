@@ -1,0 +1,7 @@
+title = "Unframed"
+description = "Example content for local development and tests."
+
+[theme]
+accent = "#336699"
+background = "#FFFFFF"
+text = "#111111"

@@ -20,8 +20,10 @@ records the design. Run all commands from the repository root.
 
 Registry entries are `{id, kind, target}` plus kind-specific fields:
 
-- `http`: `rate` (requests/second) and `duration` (Go duration syntax). The
-  target is a loopback GET URL. The Go runner measures it as `latency_ns`.
+- `http`: `rate` (requests/second), `duration` (Go duration syntax) and an
+  optional expected `status`, 200 by default; other response codes count as
+  errors. The target is a loopback GET URL. The Go runner measures it as
+  `latency_ns`.
 - `browser`: `repetitions`. The target is a route path, such as `/`, or a
   loopback URL. The frontend runner loads it in Chromium against a
   production `next start` server. Each repetition is one fresh browser
@@ -52,7 +54,7 @@ target, then run every workload into one run directory:
 ```sh
 # terminal 1: serve the http workload targets
 make build-backend
-./backend/bin/server
+CONTENT_ROOT=examples/site ./backend/bin/server
 
 # terminal 2: build both apps, then run every registry workload
 PERF_MACHINE=<label> make perf-run

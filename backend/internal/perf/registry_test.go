@@ -40,6 +40,10 @@ func TestParseRegistryRejects(t *testing.T) {
 			{"id":"a","kind":"http","target":"http://127.0.0.1:8080/x","rate":1,"duration":"later"}]}`,
 		"http with repetitions": `{"version":2,"workloads":[
 			{"id":"a","kind":"http","target":"http://127.0.0.1:8080/x","rate":1,"duration":"1s","repetitions":3}]}`,
+		"http status out of range": `{"version":2,"workloads":[
+			{"id":"a","kind":"http","target":"http://127.0.0.1:8080/x","rate":1,"duration":"1s","status":42}]}`,
+		"browser with status": `{"version":2,"workloads":[
+			{"id":"a","kind":"browser","target":"/","repetitions":1,"status":404}]}`,
 		"browser missing repetitions": `{"version":2,"workloads":[
 			{"id":"a","kind":"browser","target":"/"}]}`,
 		"browser with rate": `{"version":2,"workloads":[

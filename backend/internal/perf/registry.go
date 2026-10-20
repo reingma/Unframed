@@ -4,6 +4,7 @@ import (
 	"encoding/json/v2"
 	"fmt"
 	"net"
+	"net/http"
 	"net/url"
 	"path/filepath"
 	"regexp"
@@ -19,7 +20,8 @@ var (
 // Workload is one declarative registry entry. Kind selects which fields
 // apply: http workloads carry rate (requests per second) and duration;
 // browser workloads carry repetitions; build workloads carry only a target.
-// Browser and build workloads are run by the frontend runner.
+// Browser and build workloads are run by the frontend runner. Status is the
+// HTTP response code an http workload expects, 200 when unset.
 type Workload struct {
 	ID          string   `json:"id"`
 	Kind        string   `json:"kind"`
@@ -27,6 +29,15 @@ type Workload struct {
 	Rate        *float64 `json:"rate,omitempty"`
 	Duration    string   `json:"duration,omitempty"`
 	Repetitions *int     `json:"repetitions,omitempty"`
+	Status      *int     `json:"status,omitempty"`
+}
+
+// ExpectedStatus is the response code that counts as a successful sample.
+func (w *Workload) ExpectedStatus() int {
+	if w.Status == nil {
+		return http.StatusOK
+	}
+	return *w.Status
 }
 
 // Registry is the declarative workload list. Adding a measurable path is one
@@ -69,6 +80,9 @@ func isLocalTarget(rawURL string) error {
 func (w *Workload) validate() error {
 	if !workloadIDPattern.MatchString(w.ID) {
 		return fmt.Errorf("workload id %q must match %s", w.ID, workloadIDPattern)
+	}
+	if w.Status != nil && (w.Kind != KindHTTP || *w.Status < 100 || *w.Status > 599) {
+		return fmt.Errorf("workload %q: status is only valid for http workloads, as a 100-599 code", w.ID)
 	}
 	switch w.Kind {
 	case KindHTTP:

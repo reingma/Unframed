@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- A JSON API serving the content build: `GET /manifest`, `GET /articles/*path`
+  for published envelopes, token-gated draft previews with validation errors
+  and a diagnostics report, and a token-gated synchronous `POST /admin/reload`.
+  The server builds `CONTENT_ROOT` before listening and watches it, rebuilding
+  200 ms after changes stop; a failed rebuild keeps the last good build
+  serving. Requests carry an `X-Request-ID` correlation ID.
 - Content builds: each valid article, drafts included, is rendered from
   Markdown to safe HTML (CommonMark with GFM tables, strikethrough, autolinks
   and task lists; raw HTML dropped) into a versioned JSON envelope with its

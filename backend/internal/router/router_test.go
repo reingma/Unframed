@@ -88,15 +88,15 @@ func newServer(t *testing.T, preview, admin string) *server {
 	logger := slog.New(slog.NewJSONHandler(logs, nil))
 	src := &source{files: site}
 	store := &snapshot.Store{}
-	builder := rebuild.New(store, src.build, logger)
-	if err := builder.Start(t.Context()); err != nil {
+	manager := rebuild.New(store, src.build, logger)
+	if err := manager.Start(t.Context()); err != nil {
 		t.Fatal(err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
-	go func() { builder.Run(ctx); close(done) }()
+	go func() { manager.Run(ctx); close(done) }()
 	t.Cleanup(func() { cancel(); <-done })
-	handlers := api.New(store, builder, api.NewToken(preview), api.NewToken(admin), logger)
+	handlers := api.New(store, manager, api.NewToken(preview), api.NewToken(admin), logger)
 	return &server{handler: api.Observe(router.New(handlers), logger), store: store, source: src, logs: logs}
 }
 

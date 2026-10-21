@@ -50,22 +50,22 @@ func run(ctx context.Context) error {
 	defer cancel()
 	store := &snapshot.Store{}
 	publisher := publish.NewLocal(logs.Subscriber{Logger: logger})
-	builder := rebuild.New(store, rebuild.FromSource(source, publisher, logger), logger)
-	if err := builder.Start(ctx); err != nil {
+	manager := rebuild.New(store, rebuild.FromSource(source, publisher, logger), logger)
+	if err := manager.Start(ctx); err != nil {
 		return err
 	}
-	builderDone := make(chan struct{})
-	go func() { builder.Run(ctx); close(builderDone) }()
-	defer func() { cancel(); <-builderDone }()
+	managerDone := make(chan struct{})
+	go func() { manager.Run(ctx); close(managerDone) }()
+	defer func() { cancel(); <-managerDone }()
 
 	result := make(chan error, 2)
 	go func() {
-		if err := builder.Follow(ctx, watch.New(root, watch.Debounce, logger)); err != nil {
+		if err := manager.Follow(ctx, watch.New(root, watch.Debounce, logger)); err != nil {
 			result <- err
 		}
 	}()
 
-	handlers := api.New(store, builder,
+	handlers := api.New(store, manager,
 		api.NewToken(os.Getenv("PREVIEW_TOKEN")), api.NewToken(os.Getenv("ADMIN_TOKEN")), logger)
 	server := &http.Server{
 		Addr:              addr,

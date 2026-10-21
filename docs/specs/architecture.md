@@ -14,7 +14,7 @@ and future rendering boundary.
 - [backend/cmd/server](../../backend/cmd/server/main.go) owns server setup,
   configuration, timeouts, graceful shutdown and lifecycle, not route
   definitions. It runs the startup build before listening and then starts the
-  builder and the content watcher.
+  build manager and the content watcher.
 - [backend/internal/router](../../backend/internal/router/router.go) registers
   explicit paths and methods through httprouter. Handlers use standard
   `http.HandlerFunc` signatures.
@@ -61,13 +61,13 @@ and future rendering boundary.
   decoders; one that fails, such as an unknown `schemaVersion`, is excluded and
   reported as a diagnostic. `Store` swaps snapshots atomically.
 - [backend/internal/rebuild](../../backend/internal/rebuild/rebuild.go) owns the
-  single builder. Startup, watch and reload triggers only signal it: at most
+  single build manager, `Manager`. Startup, watch and reload triggers only signal it: at most
   one build runs and one is pending, and further signals join the pending
   build. The startup build must succeed; afterwards a failed build keeps the
   last good snapshot serving. Each build logs its trigger, coalesced signal
   count, duration and outcome.
 - [backend/internal/watch](../../backend/internal/watch/watch.go) is the local
-  change notifier, behind the builder's consumer-owned `Notifier` interface and
+  change notifier, behind the build manager's consumer-owned `Notifier` interface and
   outside the read-only `content.Source`. It watches every non-hidden directory
   with fsnotify, adds directories created later and reports a burst once after
   a 200 ms quiet window. Watcher errors and event overflow force a rebuild.

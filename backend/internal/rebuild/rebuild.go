@@ -1,6 +1,6 @@
 // Package rebuild runs every content build on one goroutine and swaps each
 // successful build's snapshot into the serving store. Triggers only signal
-// the builder: at most one build runs and at most one is pending, so any
+// the build manager: at most one build runs and at most one is pending, so any
 // volume of signals coalesces into bounded work.
 package rebuild
 
@@ -30,12 +30,12 @@ const (
 // ErrBuildFailed reports that a build failed; the previous snapshot keeps serving.
 var ErrBuildFailed = errors.New("content build failed")
 
-// BuildFunc builds one snapshot. It must honor cancellation.
-type BuildFunc func(ctx context.Context) (*snapshot.Snapshot, error)
+// SnapshotFunc builds one snapshot. It must honor cancellation.
+type SnapshotFunc func(ctx context.Context) (*snapshot.Snapshot, error)
 
-// FromSource returns a BuildFunc that builds source and publishes its events.
+// FromSource returns a SnapshotFunc that builds source and publishes its events.
 // A publishing failure is logged and does not discard the snapshot.
-func FromSource(source content.Source, publisher publish.Publisher, logger *slog.Logger) BuildFunc {
+func FromSource(source content.Source, publisher publish.Publisher, logger *slog.Logger) SnapshotFunc {
 	return func(ctx context.Context) (*snapshot.Snapshot, error) {
 		result, err := build.Build(ctx, source, publisher, logger)
 		if result == nil {
@@ -69,9 +69,9 @@ type Notifier interface {
 	Watch(ctx context.Context, changed func()) error
 }
 
-// Builder owns the serving store and is the only writer to it.
-type Builder struct {
-	build  BuildFunc
+// Manager owns the serving store and is the only writer to it.
+type Manager struct {
+	build  SnapshotFunc
 	store  *snapshot.Store
 	logger *slog.Logger
 	wake   chan struct{}
@@ -85,41 +85,41 @@ type Builder struct {
 	last    Outcome
 }
 
-// New returns a builder writing to store. Call Start, then Run.
-func New(store *snapshot.Store, buildFunc BuildFunc, logger *slog.Logger) *Builder {
-	return &Builder{build: buildFunc, store: store, logger: logger, wake: make(chan struct{}, 1)}
+// New returns a build manager writing to store. Call Start, then Run.
+func New(store *snapshot.Store, snapshot SnapshotFunc, logger *slog.Logger) *Manager {
+	return &Manager{build: snapshot, store: store, logger: logger, wake: make(chan struct{}, 1)}
 }
 
 // Start runs the startup build synchronously. Its failure is fatal to the
 // caller: there is no snapshot to serve.
-func (b *Builder) Start(ctx context.Context) error {
-	outcome := b.run(ctx, TriggerStartup, 1)
+func (m *Manager) Start(ctx context.Context) error {
+	outcome := m.run(ctx, TriggerStartup, 1)
 	return outcome.Err
 }
 
 // Run builds on signals until ctx ends. Only one Run may be active.
-func (b *Builder) Run(ctx context.Context) {
+func (m *Manager) Run(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			b.mu.Lock()
-			waiters := b.waiters
-			b.waiters = nil
-			b.mu.Unlock()
+			m.mu.Lock()
+			waiters := m.waiters
+			m.waiters = nil
+			m.mu.Unlock()
 			for _, w := range waiters {
 				w <- Outcome{Trigger: TriggerReload, Err: ctx.Err()}
 			}
 			return
-		case <-b.wake:
+		case <-m.wake:
 		}
-		b.mu.Lock()
-		trigger, signals, waiters := b.pending, b.signals, b.waiters
-		b.pending, b.signals, b.waiters = "", 0, nil
-		b.mu.Unlock()
+		m.mu.Lock()
+		trigger, signals, waiters := m.pending, m.signals, m.waiters
+		m.pending, m.signals, m.waiters = "", 0, nil
+		m.mu.Unlock()
 		if signals == 0 {
 			continue
 		}
-		outcome := b.run(ctx, trigger, signals)
+		outcome := m.run(ctx, trigger, signals)
 		for _, w := range waiters {
 			w <- outcome
 		}
@@ -128,22 +128,22 @@ func (b *Builder) Run(ctx context.Context) {
 
 // Signal requests a build without waiting. Signals that arrive while a build
 // is pending join it.
-func (b *Builder) Signal(trigger Trigger) {
-	b.mu.Lock()
-	b.add(trigger)
-	b.mu.Unlock()
-	b.notify()
+func (m *Manager) Signal(trigger Trigger) {
+	m.mu.Lock()
+	m.add(trigger)
+	m.mu.Unlock()
+	m.notify()
 }
 
 // Reload requests a build and waits for one that started after the call,
 // until ctx ends. It returns ErrBuildFailed when that build failed.
-func (b *Builder) Reload(ctx context.Context) (Outcome, error) {
+func (m *Manager) Reload(ctx context.Context) (Outcome, error) {
 	waiter := make(chan Outcome, 1)
-	b.mu.Lock()
-	b.add(TriggerReload)
-	b.waiters = append(b.waiters, waiter)
-	b.mu.Unlock()
-	b.notify()
+	m.mu.Lock()
+	m.add(TriggerReload)
+	m.waiters = append(m.waiters, waiter)
+	m.mu.Unlock()
+	m.notify()
 	select {
 	case outcome := <-waiter:
 		if outcome.Err != nil {
@@ -156,35 +156,35 @@ func (b *Builder) Reload(ctx context.Context) (Outcome, error) {
 }
 
 // Last returns the most recent finished build, successful or not.
-func (b *Builder) Last() Outcome {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	return b.last
+func (m *Manager) Last() Outcome {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.last
 }
 
-// Follow passes notifier's changes to the builder as watch signals.
-func (b *Builder) Follow(ctx context.Context, notifier Notifier) error {
-	return notifier.Watch(ctx, func() { b.Signal(TriggerWatch) })
+// Follow passes notifier's changes to the manager as watch signals.
+func (m *Manager) Follow(ctx context.Context, notifier Notifier) error {
+	return notifier.Watch(ctx, func() { m.Signal(TriggerWatch) })
 }
 
-// add records a signal; b.mu must be held.
-func (b *Builder) add(trigger Trigger) {
-	if b.signals == 0 {
-		b.pending = trigger
+// add records a signal; m.mu must be held.
+func (m *Manager) add(trigger Trigger) {
+	if m.signals == 0 {
+		m.pending = trigger
 	}
-	b.signals++
+	m.signals++
 }
 
-func (b *Builder) notify() {
+func (m *Manager) notify() {
 	select {
-	case b.wake <- struct{}{}:
+	case m.wake <- struct{}{}:
 	default:
 	}
 }
 
-func (b *Builder) run(ctx context.Context, trigger Trigger, signals int) Outcome {
+func (m *Manager) run(ctx context.Context, trigger Trigger, signals int) Outcome {
 	outcome := Outcome{Trigger: trigger, Signals: signals, Started: time.Now()}
-	next, err := b.build(ctx)
+	next, err := m.build(ctx)
 	outcome.Duration = time.Since(outcome.Started)
 	if err == nil && next == nil {
 		err = errors.New("build returned no snapshot")
@@ -192,18 +192,18 @@ func (b *Builder) run(ctx context.Context, trigger Trigger, signals int) Outcome
 	attrs := []any{"trigger", outcome.Trigger, "signals", outcome.Signals, "duration", outcome.Duration}
 	if err != nil {
 		outcome.Err = err
-		b.logger.ErrorContext(ctx, "content rebuild failed; previous snapshot still serving",
+		m.logger.ErrorContext(ctx, "content rebuild failed; previous snapshot still serving",
 			append(attrs, "outcome", "failed", "error", err)...)
 	} else {
 		outcome.BuildID = next.BuildID()
 		outcome.Envelopes = next.Envelopes()
 		outcome.ValidationErrors = len(next.Diagnostics())
-		b.store.Swap(next)
-		b.logger.InfoContext(ctx, "content rebuilt", append(attrs, "outcome", "succeeded", "build_id", outcome.BuildID,
+		m.store.Swap(next)
+		m.logger.InfoContext(ctx, "content rebuilt", append(attrs, "outcome", "succeeded", "build_id", outcome.BuildID,
 			"envelopes", outcome.Envelopes, "validation_errors", outcome.ValidationErrors)...)
 	}
-	b.mu.Lock()
-	b.last = outcome
-	b.mu.Unlock()
+	m.mu.Lock()
+	m.last = outcome
+	m.mu.Unlock()
 	return outcome
 }

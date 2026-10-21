@@ -44,7 +44,7 @@ func (s *source) build(ctx context.Context) (*snapshot.Snapshot, error) {
 // counting wraps a build, recording overlap and the number of builds, and
 // blocks each build until release is closed when release is set.
 type counting struct {
-	build   rebuild.BuildFunc
+	build   rebuild.SnapshotFunc
 	running atomic.Int32
 	overlap atomic.Bool
 	builds  atomic.Int32
@@ -191,8 +191,8 @@ func TestReloadIsBoundedByItsContext(t *testing.T) {
 
 func TestFromSourceKeepsSnapshotWhenPublishingFails(t *testing.T) {
 	failing := publish.NewLocal(failingSubscriber{})
-	buildFunc := rebuild.FromSource(contenttest.MemSource{".configuration": root, "A.md": "A.\n"}, failing, quiet())
-	s, err := buildFunc(context.Background())
+	snapshotFunc := rebuild.FromSource(contenttest.MemSource{".configuration": root, "A.md": "A.\n"}, failing, quiet())
+	s, err := snapshotFunc(context.Background())
 	if err != nil || s == nil {
 		t.Fatalf("build = %v, %v; want a snapshot despite the publishing failure", s, err)
 	}

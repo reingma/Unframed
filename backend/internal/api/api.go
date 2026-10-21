@@ -30,8 +30,8 @@ type Snapshots interface {
 	Current() *snapshot.Snapshot
 }
 
-// Builder runs reloads and reports the latest build outcome.
-type Builder interface {
+// Reloader runs reloads and reports the latest build outcome.
+type Reloader interface {
 	Reload(ctx context.Context) (rebuild.Outcome, error)
 	Last() rebuild.Outcome
 }
@@ -53,7 +53,7 @@ func (t Token) matches(got string) bool {
 // Handler serves the API routes.
 type Handler struct {
 	snapshots Snapshots
-	builder   Builder
+	rebuilds  Reloader
 	preview   Token
 	admin     Token
 	logger    *slog.Logger
@@ -61,8 +61,8 @@ type Handler struct {
 
 // New returns the API handlers. A zero preview token disables preview and
 // diagnostics; a zero admin token disables reload.
-func New(snapshots Snapshots, builder Builder, preview, admin Token, logger *slog.Logger) *Handler {
-	return &Handler{snapshots: snapshots, builder: builder, preview: preview, admin: admin, logger: logger}
+func New(snapshots Snapshots, rebuilds Reloader, preview, admin Token, logger *slog.Logger) *Handler {
+	return &Handler{snapshots: snapshots, rebuilds: rebuilds, preview: preview, admin: admin, logger: logger}
 }
 
 // Manifest serves the public manifest.
@@ -140,7 +140,7 @@ func (h *Handler) Diagnostics(w http.ResponseWriter, r *http.Request) {
 			ValidationErrors: len(diagnostics),
 		},
 		Diagnostics: nonNil(diagnostics),
-		LastBuild:   newLastBuild(h.builder.Last()),
+		LastBuild:   newLastBuild(h.rebuilds.Last()),
 	})
 }
 
@@ -200,7 +200,7 @@ func (h *Handler) Reload(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), ReloadTimeout)
 	defer cancel()
-	outcome, err := h.builder.Reload(ctx)
+	outcome, err := h.rebuilds.Reload(ctx)
 	switch {
 	case errors.Is(err, rebuild.ErrBuildFailed):
 		h.writeJSON(w, r, http.StatusInternalServerError, errorBody{Error: "build failed; see diagnostics"})

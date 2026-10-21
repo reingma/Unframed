@@ -16,11 +16,11 @@ an author saves a broken file.
   Requests read only the current snapshot.
 - Each successful build becomes an immutable snapshot, swapped atomically.
   Handlers read it through a small server-owned interface, the seam that a
-  separate builder with a shared store would replace when serving scales out.
+  separate build process with a shared store would replace when serving scales out.
 - The manifest and envelopes are encoded once per build and served as bytes,
   with a content hash per document for later caching headers. Encoded
   documents are decoded back, so a document the decoders reject is never served.
-- One builder goroutine runs full rebuilds. Triggers only signal it, so builds
+- One build manager goroutine runs full rebuilds. Triggers only signal it, so builds
   never overlap and work is bounded by the build time, not the event or reload
   volume. Incremental builds wait until content is more than Markdown.
 - The watcher uses `github.com/fsnotify/fsnotify` v1.9.0 behind a

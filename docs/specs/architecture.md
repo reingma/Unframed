@@ -133,7 +133,9 @@ refresh widget. Its production build succeeds without a running backend.
 `BACKEND_URL` is a configurable, server-only absolute backend origin.
 Never prefix it with `NEXT_PUBLIC_`. Go's `BACKEND_ADDR` controls its listen address;
 changing either address requires no source edit. `BACKEND_URL` defaults to
-`http://127.0.0.1:8080` and `BACKEND_ADDR` to `:8080`. Each health fetch has a
+`http://127.0.0.1:8080` and `BACKEND_ADDR` to `127.0.0.1:8080`. Only the Next.js
+server calls Go, so `BACKEND_ADDR` must name `localhost` or a loopback or
+private IP; an unspecified (`:8080`, `0.0.0.0`) or public address stops startup. Each health fetch has a
 two-second timeout.
 
 The helper resolves the health endpoint from the origin root and infers its
@@ -160,6 +162,8 @@ the bodies are the snapshot's pre-encoded [documents](document-contract.md):
 - `PREVIEW_TOKEN` gates both preview routes; a wrong token or an unset one
   returns the same public 404. Preview links are shareable, so the token is a
   shareable credential.
+- Both tokens must be 32 to 256 characters of the URL-safe base64url alphabet
+  `[A-Za-z0-9_-]`, and the two must differ; otherwise startup fails.
 - `ADMIN_TOKEN` gates reload only, and only as `Authorization: Bearer <token>`.
   Reload returns 404 when the token is unset, 401 for a missing or wrong token,
   including the preview token, 500 when its build fails, 503 when the server

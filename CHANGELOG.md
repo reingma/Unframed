@@ -14,7 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and a diagnostics report, and a token-gated synchronous `POST /admin/reload`.
   The server builds `CONTENT_ROOT` before listening and watches it, rebuilding
   200 ms after changes stop; a failed rebuild keeps the last good build
-  serving. Requests carry an `X-Request-ID` correlation ID.
+  serving. Requests carry an `X-Request-ID` correlation ID. Preview and admin
+  tokens must be at least 32 URL-safe characters, and `BACKEND_ADDR` defaults
+  to `127.0.0.1:8080` and refuses unspecified or public addresses.
 - Content builds: each valid article, drafts included, is rendered from
   Markdown to safe HTML (CommonMark with GFM tables, strikethrough, autolinks
   and task lists; raw HTML dropped) into a versioned JSON envelope with its

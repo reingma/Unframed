@@ -22,8 +22,8 @@ Registry entries are `{id, kind, target}` plus kind-specific fields:
 
 - `http`: `rate` (requests/second), `duration` (Go duration syntax) and an
   optional expected `status`, 200 by default; other response codes count as
-  errors. The target is a loopback GET URL. The Go runner measures it as
-  `latency_ns`.
+  errors. The target is a loopback GET URL. The Go runner records
+  `latency_ns` and `response_bytes` (the response body size).
 - `browser`: `repetitions`. The target is a route path, such as `/`, or a
   loopback URL. The frontend runner loads it in Chromium against a
   production `next start` server. Each repetition is one fresh browser
@@ -48,15 +48,23 @@ validates the registry: unique ids, kind fields and local-only targets.
 
 ## Running a measurement
 
-On the designated machine, start the backend that the `http` workloads
-target, then run every workload into one run directory:
+On the designated machine, start the backends that the `http` workloads
+target, then run every workload into one run directory. The `*-large`
+workloads hit a second server on `127.0.0.1:8081` that serves a generated
+1,000-article tree (20 sections of 50 articles, the shape `BenchmarkBuild`
+measures). `make perf-content` regenerates it under the gitignored
+`perf/content/`:
 
 ```sh
-# terminal 1: serve the http workload targets
+# terminal 1: serve the example site for the small http workloads
 make build-backend
 CONTENT_ROOT=examples/site ./backend/bin/server
 
-# terminal 2: build both apps, then run every registry workload
+# terminal 2: serve the generated large tree for the *-large workloads
+make perf-content
+BACKEND_ADDR=127.0.0.1:8081 CONTENT_ROOT=perf/content ./backend/bin/server
+
+# terminal 3: build both apps, then run every registry workload
 PERF_MACHINE=<label> make perf-run
 ```
 

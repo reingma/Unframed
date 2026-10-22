@@ -62,9 +62,12 @@ func RunHTTPWorkload(ctx context.Context, w Workload, env Environment) (RunArtif
 			failure = fmt.Sprintf("status %d, want %d", res.Code, want)
 		}
 		samples = append(samples, Sample{
-			Metrics: map[string]float64{"latency_ns": float64(res.Latency)},
-			Status:  int(res.Code),
-			Error:   failure,
+			Metrics: map[string]float64{
+				"latency_ns":     float64(res.Latency),
+				"response_bytes": float64(res.BytesIn),
+			},
+			Status: int(res.Code),
+			Error:  failure,
 		})
 	}
 	if err := ctx.Err(); err != nil {

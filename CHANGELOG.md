@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   serving. Requests carry an `X-Request-ID` correlation ID. Preview and admin
   tokens must be at least 32 URL-safe characters, and `BACKEND_ADDR` defaults
   to `127.0.0.1:8080` and refuses unspecified or public addresses.
+  Performance workloads cover the manifest, an article and a miss, plus
+  the manifest and an article of a generated 1,000-article tree
+  (`make perf-content`); http workloads also record `response_bytes`.
 - Content builds: each valid article, drafts included, is rendered from
   Markdown to safe HTML (CommonMark with GFM tables, strikethrough, autolinks
   and task lists; raw HTML dropped) into a versioned JSON envelope with its

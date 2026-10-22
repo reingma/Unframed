@@ -31,6 +31,20 @@
       "status": 404
     },
     {
+      "id": "backend-manifest-large",
+      "kind": "http",
+      "target": "http://127.0.0.1:8081/manifest",
+      "rate": 50,
+      "duration": "10s"
+    },
+    {
+      "id": "backend-article-large",
+      "kind": "http",
+      "target": "http://127.0.0.1:8081/articles/section-10/article-25",
+      "rate": 50,
+      "duration": "10s"
+    },
+    {
       "id": "frontend-root",
       "kind": "browser",
       "target": "/",

@@ -48,6 +48,9 @@ func TestRunHTTPWorkloadEndToEnd(t *testing.T) {
 		if _, ok := s.Metrics["latency_ns"]; !ok {
 			t.Fatalf("sample %d lacks latency_ns", i)
 		}
+		if got := s.Metrics["response_bytes"]; got != float64(len(`{"status":"ok"}`)) {
+			t.Fatalf("sample %d response_bytes = %v, want the body length", i, got)
+		}
 	}
 
 	ws, err := CompressArtifact(parsed)

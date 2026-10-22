@@ -12,7 +12,9 @@ Go and Next.js applications. There is one Go module and one npm project.
 and future rendering boundary.
 
 - [backend/cmd/server](../../backend/cmd/server/main.go) owns server setup,
-  timeouts, graceful shutdown and lifecycle, not route definitions.
+  configuration, timeouts, graceful shutdown and lifecycle, not route
+  definitions. It runs the startup build before listening and then starts the
+  build manager and the content watcher.
 - [backend/internal/router](../../backend/internal/router/router.go) registers
   explicit paths and methods through httprouter. Handlers use standard
   `http.HandlerFunc` signatures.
@@ -51,8 +53,33 @@ and future rendering boundary.
   directories inside the content root and build IDs that are not safe file
   names.
   [ADR 0005](../decisions/0005-document-envelope-rendering-and-fanout.md)
-  records the document, rendering and event rationale. The server does not
-  build content yet.
+  records the document, rendering and event rationale.
+- [backend/internal/snapshot](../../backend/internal/snapshot/snapshot.go) turns
+  one successful build into an immutable snapshot: the manifest and every
+  envelope encoded once, each with a SHA-256 content hash, and the per-item
+  diagnostics. Each encoded document is decoded back through the `document`
+  decoders; one that fails, such as an unknown `schemaVersion`, is excluded and
+  reported as a diagnostic, and the manifest drops its links to excluded
+  published envelopes so every nav link resolves. `Store` swaps snapshots
+  atomically.
+- [backend/internal/rebuild](../../backend/internal/rebuild/rebuild.go) owns the
+  single build manager, `Manager`. Startup, watch and reload triggers only signal it: at most
+  one build runs and one is pending, and further signals join the pending
+  build. The startup build must succeed; afterwards a failed build keeps the
+  last good snapshot serving. Each build logs its trigger, coalesced signal
+  count, duration and outcome. A build cut short by shutdown is logged as
+  canceled, not failed, and is not recorded as the last outcome.
+- [backend/internal/watch](../../backend/internal/watch/watch.go) is the local
+  change notifier, behind the build manager's consumer-owned `Notifier` interface and
+  outside the read-only `content.Source`. It watches every non-hidden directory
+  with fsnotify, adds directories created later and reports a burst once after
+  a 200 ms quiet window. Watcher errors and event overflow force a rebuild.
+  Network filesystems may not deliver notifications; there is no polling.
+- [backend/internal/api](../../backend/internal/api/api.go) serves the current
+  snapshot through the server-owned `Snapshots` read interface, never the
+  content source, and assigns request correlation IDs.
+  [ADR 0006](../decisions/0006-snapshot-serving-and-rebuilds.md) records the
+  serving and rebuild rationale.
 - [backend/internal/perf](../../backend/internal/perf) and
   [backend/cmd/perf](../../backend/cmd/perf) own the performance measurement
   machinery: registry parsing, the vegeta-based HTTP runner, compression of
@@ -106,7 +133,9 @@ refresh widget. Its production build succeeds without a running backend.
 `BACKEND_URL` is a configurable, server-only absolute backend origin.
 Never prefix it with `NEXT_PUBLIC_`. Go's `BACKEND_ADDR` controls its listen address;
 changing either address requires no source edit. `BACKEND_URL` defaults to
-`http://127.0.0.1:8080` and `BACKEND_ADDR` to `:8080`. Each health fetch has a
+`http://127.0.0.1:8080` and `BACKEND_ADDR` to `127.0.0.1:8080`. Only the Next.js
+server calls Go, so `BACKEND_ADDR` must name `localhost` or a loopback or
+private IP; an unspecified (`:8080`, `0.0.0.0`) or public address stops startup. Each health fetch has a
 two-second timeout.
 
 The helper resolves the health endpoint from the origin root and infers its
@@ -115,9 +144,43 @@ available presentation and displays the response. Connection failures, timeouts,
 non-success HTTP responses, malformed JSON and schema-invalid data produce the
 unavailable presentation, not healthy data.
 
-Built documents are not served over HTTP yet. Remote event delivery,
+Go serves the build output as JSON. `Content-Type` is `application/json`, and
+the bodies are the snapshot's pre-encoded [documents](document-contract.md):
+
+| Route                                | Response                                                                                                                                         |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `GET /manifest`                      | The public manifest. Each nav node's `urlPath` addresses its article.                                                                            |
+| `GET /articles/*path`                | The published envelope at the slug path; `/articles/` is the root landing page.                                                                  |
+| `GET /preview/:token/articles/*path` | The draft at the path, otherwise the published envelope. A miss is a 404 listing the validation errors of the item and its ancestor directories. |
+| `GET /preview/:token/diagnostics`    | The serving build's ID, time and counts, every validation error and the latest build outcome, which may be a failure.                            |
+| `POST /admin/reload`                 | Runs a build that starts after the request and returns its `buildId`, `envelopes` and `validationErrors`.                                        |
+
+- Article paths are lowercase slug segments. Drafts, invalid items, unknown
+  paths, dot or empty segments, trailing slashes, encoded `/` or `\` and other
+  non-slug segments all return the same `404 {"error":"not found"}`. Paths are
+  never cleaned or redirected.
+- `PREVIEW_TOKEN` gates both preview routes; a wrong token or an unset one
+  returns the same public 404. Preview links are shareable, so the token is a
+  shareable credential.
+- Both tokens must be 32 to 256 characters of the URL-safe base64url alphabet
+  `[A-Za-z0-9_-]`, and the two must differ; otherwise startup fails.
+- `ADMIN_TOKEN` gates reload only, and only as `Authorization: Bearer <token>`.
+  Reload returns 404 when the token is unset, 401 for a missing or wrong token,
+  including the preview token, 500 when its build fails, 503 when the server
+  shuts down first and 504 when it waits longer than 8 seconds. A client that
+  disconnects first is logged with status 499. Tokens are compared in constant time and never logged.
+- Next.js sends `X-Request-ID`. Go keeps an ID of at most 128 characters from
+  `[A-Za-z0-9._-]` and otherwise generates one, and echoes it in the response.
+  Each request log carries it, the URL path with everything after a `preview`
+  segment redacted (a well-formed preview path keeps its tail),
+  the status, the duration and the serving build ID.
+- Every response comes from one snapshot. Requests never read the content
+  source; the watcher keeps snapshots fresh. Content hashes are computed but no
+  caching headers are served.
+
+Remote event delivery,
 appearance configuration beyond the theme, S3 or other content providers,
-math, authentication and database storage are not implemented. The API has
+math, authentication, rate limiting and database storage are not implemented. The API has
 no generic response envelope, GraphQL/gRPC or code generation. Binary-response
 contracts remain undecided; see ADR 0001 rather than treating them as implemented features.
 

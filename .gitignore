@@ -17,6 +17,7 @@ backend/coverage.out
 # Performance artifacts (perf/history/ records are committed)
 perf/runs/
 perf/reports/
+perf/content/
 
 # Local environment configuration (examples are safe to commit)
 .env

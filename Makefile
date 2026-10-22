@@ -1,4 +1,4 @@
-.PHONY: setup dev-backend dev-frontend fmt check check-backend check-frontend check-skills check-perf test test-backend test-frontend test-skills build build-backend build-frontend test-e2e perf-build perf-run perf-run-frontend perf-record perf-compare perf-report perf-gate
+.PHONY: setup dev-backend dev-frontend fmt check check-backend check-frontend check-skills check-perf test test-backend test-frontend test-skills build build-backend build-frontend test-e2e perf-build perf-run perf-run-frontend perf-record perf-compare perf-report perf-gate perf-content
 
 GO_SKILL_FILES := $(wildcard .agents/skills/go-engineering/assets/*.go)
 
@@ -7,7 +7,7 @@ setup:
 	cd frontend && npm ci
 
 dev-backend:
-	cd backend && GOEXPERIMENT=jsonv2 go run ./cmd/server
+	cd backend && CONTENT_ROOT=$${CONTENT_ROOT:-../examples/site} GOEXPERIMENT=jsonv2 go run ./cmd/server
 
 dev-frontend:
 	cd frontend && npm run dev
@@ -71,6 +71,10 @@ perf-run: perf-build build
 perf-run-frontend: perf-build build
 	backend/bin/perf validate
 	cd frontend && PERF_RUN_DIR=$(PERF_RUN) npm run perf
+
+perf-content: perf-build
+	rm -rf perf/content
+	backend/bin/perf content --out perf/content
 
 perf-record: perf-build
 	backend/bin/perf compress --tag $(TAG)

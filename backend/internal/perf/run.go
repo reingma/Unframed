@@ -52,11 +52,22 @@ func RunHTTPWorkload(ctx context.Context, w Workload, env Environment) (RunArtif
 		capHint = 1_000_000
 	}
 	samples := make([]Sample, 0, capHint+8)
+	want := w.ExpectedStatus()
 	for res := range attacker.Attack(targeter, rate, duration, w.ID) {
+		failure := res.Error
+		switch {
+		case int(res.Code) == want:
+			failure = ""
+		case failure == "":
+			failure = fmt.Sprintf("status %d, want %d", res.Code, want)
+		}
 		samples = append(samples, Sample{
-			Metrics: map[string]float64{"latency_ns": float64(res.Latency)},
-			Status:  int(res.Code),
-			Error:   res.Error,
+			Metrics: map[string]float64{
+				"latency_ns":     float64(res.Latency),
+				"response_bytes": float64(res.BytesIn),
+			},
+			Status: int(res.Code),
+			Error:  failure,
 		})
 	}
 	if err := ctx.Err(); err != nil {

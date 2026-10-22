@@ -9,6 +9,42 @@
       "duration": "10s"
     },
     {
+      "id": "backend-manifest",
+      "kind": "http",
+      "target": "http://127.0.0.1:8080/manifest",
+      "rate": 50,
+      "duration": "10s"
+    },
+    {
+      "id": "backend-article",
+      "kind": "http",
+      "target": "http://127.0.0.1:8080/articles/essays/hello-world",
+      "rate": 50,
+      "duration": "10s"
+    },
+    {
+      "id": "backend-not-found",
+      "kind": "http",
+      "target": "http://127.0.0.1:8080/articles/essays/missing",
+      "rate": 50,
+      "duration": "10s",
+      "status": 404
+    },
+    {
+      "id": "backend-manifest-large",
+      "kind": "http",
+      "target": "http://127.0.0.1:8081/manifest",
+      "rate": 50,
+      "duration": "10s"
+    },
+    {
+      "id": "backend-article-large",
+      "kind": "http",
+      "target": "http://127.0.0.1:8081/articles/section-10/article-25",
+      "rate": 50,
+      "duration": "10s"
+    },
+    {
       "id": "frontend-root",
       "kind": "browser",
       "target": "/",

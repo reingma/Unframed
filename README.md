@@ -40,10 +40,16 @@ for the request path and failure behavior.
 
 ## Configuration
 
-| Variable       | Process        | Default                 | Purpose                                                            |
-| -------------- | -------------- | ----------------------- | ------------------------------------------------------------------ |
-| `BACKEND_ADDR` | Go             | `:8080`                 | Listen address, such as `127.0.0.1:9090`.                          |
-| `BACKEND_URL`  | Next.js server | `http://127.0.0.1:8080` | Absolute backend origin; `/healthcheck` is resolved from its root. |
+| Variable        | Process        | Default                 | Purpose                                                                                                                                                                 |
+| --------------- | -------------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `BACKEND_ADDR`  | Go             | `127.0.0.1:8080`        | Listen address, such as `127.0.0.1:9090`. Must be `localhost` or a loopback or private IP; startup fails otherwise.                                                     |
+| `BACKEND_URL`   | Next.js server | `http://127.0.0.1:8080` | Absolute backend origin; `/healthcheck` is resolved from its root.                                                                                                      |
+| `CONTENT_ROOT`  | Go             | none, required          | Content directory to build and watch. An invalid root stops startup. `make dev-backend` defaults it to [examples/site](examples/site).                                  |
+| `PREVIEW_TOKEN` | Go             | unset: preview disabled | Shareable token for the preview and diagnostics routes. 32–256 characters of `[A-Za-z0-9_-]`; generate one with `openssl rand -base64 32 \| tr '+/' '-_' \| tr -d '='`. |
+| `ADMIN_TOKEN`   | Go             | unset: reload disabled  | Bearer token for `POST /admin/reload`. Same format as `PREVIEW_TOKEN` and must differ from it. Never put it in a URL.                                                   |
+
+Content changes are picked up after a 200 ms quiet window. See the
+[API routes](docs/specs/architecture.md#http-and-rendering-contract).
 
 Follow the [server-only configuration contract](docs/specs/architecture.md#http-and-rendering-contract).
 
@@ -99,7 +105,7 @@ For example:
 # In backend/
 export GOEXPERIMENT=jsonv2
 go mod download
-go run ./cmd/server
+CONTENT_ROOT=../examples/site go run ./cmd/server
 gofmt -w cmd internal
 go vet ./...
 go test -race ./...

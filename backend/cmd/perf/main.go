@@ -32,7 +32,7 @@ func main() {
 
 func run(ctx context.Context, args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("usage: perf <run|compress|compare|report|validate|gate> [flags]")
+		return fmt.Errorf("usage: perf <run|compress|compare|report|validate|gate|content> [flags]")
 	}
 	switch args[0] {
 	case "run":
@@ -47,6 +47,8 @@ func run(ctx context.Context, args []string) error {
 		return cmdValidate(ctx, args[1:])
 	case "gate":
 		return cmdGate(ctx, args[1:])
+	case "content":
+		return cmdContent(ctx, args[1:])
 	default:
 		return fmt.Errorf("unknown subcommand %q", args[0])
 	}
@@ -141,6 +143,21 @@ func cmdRun(ctx context.Context, args []string) error {
 	if *only != "" && !ran {
 		return fmt.Errorf("no workload matched --only %q", *only)
 	}
+	return nil
+}
+
+// cmdContent writes the large content tree that the *-large http workloads
+// are served from.
+func cmdContent(_ context.Context, args []string) error {
+	fs := flag.NewFlagSet("content", flag.ContinueOnError)
+	out := fs.String("out", "perf/content", "directory to create; must be absent or empty")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if err := perf.WriteLargeTree(*out); err != nil {
+		return err
+	}
+	slog.Info("content tree written", "dir", *out, "articles", perf.LargeTreeSections*perf.LargeTreeArticles)
 	return nil
 }
 

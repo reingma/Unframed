@@ -51,20 +51,13 @@ type Snapshot struct {
 // New encodes the manifest and every envelope of result. Each encoded
 // envelope is decoded back through document.DecodeEnvelope; one that fails,
 // such as an unknown schemaVersion, is excluded and reported as a diagnostic
-// instead of being served. New fails only when the manifest does not encode
-// to a valid document.
+// instead of being served, and the manifest drops its links to excluded
+// published envelopes. New fails only when the manifest does not encode to a
+// valid document.
 func New(result *build.Result, builtAt time.Time) (*Snapshot, error) {
-	data, err := json.Marshal(result.Manifest)
-	if err != nil {
-		return nil, fmt.Errorf("encode manifest: %w", err)
-	}
-	if _, err := document.DecodeManifest(data); err != nil {
-		return nil, fmt.Errorf("encode manifest: %w", err)
-	}
 	s := &Snapshot{
 		buildID:   result.BuildID,
 		builtAt:   builtAt,
-		manifest:  newDocument(data),
 		envelopes: make(map[build.Key]Document, len(result.Envelopes)),
 	}
 	sources := map[build.Key]string{}
@@ -77,6 +70,7 @@ func New(result *build.Result, builtAt time.Time) (*Snapshot, error) {
 			s.diagnostics = append(s.diagnostics, newDiagnostic(dirs, validationErr.Path, validationErr.Err.Error()))
 		}
 	}
+	excluded := map[string]bool{}
 	for key, envelope := range result.Envelopes {
 		data, err := json.Marshal(envelope)
 		if err == nil {
@@ -88,11 +82,46 @@ func New(result *build.Result, builtAt time.Time) (*Snapshot, error) {
 				sourcePath = key.URLPath
 			}
 			s.diagnostics = append(s.diagnostics, Diagnostic{Path: sourcePath, URLPath: key.URLPath, Message: err.Error()})
+			if !key.Draft {
+				excluded[key.URLPath] = true
+			}
 			continue
 		}
 		s.envelopes[key] = newDocument(data)
 	}
+
+	manifest := result.Manifest
+	manifest.Nav = withoutExcluded(manifest.Nav, excluded)
+	data, err := json.Marshal(manifest)
+	if err != nil {
+		return nil, fmt.Errorf("encode manifest: %w", err)
+	}
+	if _, err := document.DecodeManifest(data); err != nil {
+		return nil, fmt.Errorf("encode manifest: %w", err)
+	}
+	s.manifest = newDocument(data)
 	return s, nil
+}
+
+// withoutExcluded returns a copy of nav that no longer links to the excluded
+// published URLs: excluded articles are dropped and a directory whose index
+// is excluded loses HasIndex.
+func withoutExcluded(nav document.NavNode, excluded map[string]bool) document.NavNode {
+	if nav.Kind != document.NavDirectory {
+		return nav
+	}
+	if excluded[nav.URLPath] {
+		nav.HasIndex = false
+	}
+	children := make([]document.NavNode, 0, len(nav.Children))
+	for _, child := range nav.Children {
+		if child.Kind == document.NavArticle && excluded[child.URLPath] {
+			continue
+		}
+		children = append(children, withoutExcluded(child, excluded))
+	}
+	nav.Children = children
+	return nav
 }
 
 // newDiagnostic derives an item's URL from its source path: hidden

@@ -205,3 +205,42 @@ func TestStoreReadsAreConsistentDuringSwaps(t *testing.T) {
 	close(done)
 	wg.Wait()
 }
+
+// Whichever published envelope fails to decode, every link the manifest
+// still has resolves to a served envelope.
+func TestManifestLinksOnlyServedEnvelopes(t *testing.T) {
+	for key := range buildResult(t).Envelopes {
+		if key.Draft {
+			continue
+		}
+		t.Run(key.URLPath, func(t *testing.T) {
+			result := buildResult(t)
+			envelope := result.Envelopes[key]
+			envelope.SchemaVersion = document.SchemaVersion + 1
+			result.Envelopes[key] = envelope
+			s, err := snapshot.New(result, time.Now())
+			if err != nil {
+				t.Fatal(err)
+			}
+			manifest, err := document.DecodeManifest(s.Manifest().JSON)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var walk func(document.NavNode)
+			walk = func(n document.NavNode) {
+				if n.Kind == document.NavArticle || n.HasIndex {
+					if _, ok := s.Envelope(n.URLPath, false); !ok {
+						t.Fatalf("manifest links %s, which is not served", n.URLPath)
+					}
+				}
+				for _, child := range n.Children {
+					walk(child)
+				}
+			}
+			walk(manifest.Nav)
+			if _, ok := result.Envelopes[key]; !ok || len(result.Manifest.Nav.Children) == 0 {
+				t.Fatal("New modified the build result")
+			}
+		})
+	}
+}

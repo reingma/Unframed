@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -208,3 +209,63 @@ func TestFromSourceKeepsSnapshotWhenPublishingFails(t *testing.T) {
 type failingSubscriber struct{}
 
 func (failingSubscriber) Receive(context.Context, []event.Event) error { return errors.New("bus down") }
+
+type lockedBuffer struct {
+	mu  sync.Mutex
+	buf strings.Builder
+}
+
+func (b *lockedBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *lockedBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
+}
+
+func TestShutdownIsNotABuildFailure(t *testing.T) {
+	src := &source{files: contenttest.MemSource{".configuration": root}}
+	started := make(chan struct{})
+	var builds atomic.Int32
+	blockUntilCanceled := func(ctx context.Context) (*snapshot.Snapshot, error) {
+		if builds.Add(1) == 1 {
+			return src.build(ctx)
+		}
+		close(started)
+		<-ctx.Done()
+		return nil, ctx.Err()
+	}
+	logs := &lockedBuffer{}
+	var store snapshot.Store
+	m := rebuild.New(&store, blockUntilCanceled, slog.New(slog.NewJSONHandler(logs, nil)))
+	if err := m.Start(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	startup := m.Last()
+	ctx, cancel := context.WithCancel(t.Context())
+	done := make(chan struct{})
+	go func() { m.Run(ctx); close(done) }()
+
+	reloaded := make(chan error, 1)
+	go func() { _, err := m.Reload(context.Background()); reloaded <- err }()
+	<-started
+	cancel()
+	<-done
+
+	if err := <-reloaded; !errors.Is(err, rebuild.ErrStopped) || errors.Is(err, rebuild.ErrBuildFailed) {
+		t.Fatalf("reload error = %v, want ErrStopped and not ErrBuildFailed", err)
+	}
+	if last := m.Last(); last.BuildID != startup.BuildID || last.Err != nil {
+		t.Fatalf("last outcome = %+v, want the startup build %+v", last, startup)
+	}
+	if store.Current().BuildID() != startup.BuildID {
+		t.Fatal("the serving snapshot changed")
+	}
+	if out := logs.String(); strings.Contains(out, `"level":"ERROR"`) || !strings.Contains(out, `"outcome":"canceled"`) {
+		t.Fatalf("shutdown logs:\n%s", out)
+	}
+}

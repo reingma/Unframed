@@ -30,6 +30,10 @@ const (
 // ErrBuildFailed reports that a build failed; the previous snapshot keeps serving.
 var ErrBuildFailed = errors.New("content build failed")
 
+// ErrStopped reports a build or reload cut short because the manager is
+// shutting down. It is not a build failure.
+var ErrStopped = errors.New("build manager stopped")
+
 // SnapshotFunc builds one snapshot. It must honor cancellation.
 type SnapshotFunc func(ctx context.Context) (*snapshot.Snapshot, error)
 
@@ -107,7 +111,7 @@ func (m *Manager) Run(ctx context.Context) {
 			m.waiters = nil
 			m.mu.Unlock()
 			for _, w := range waiters {
-				w <- Outcome{Trigger: TriggerReload, Err: ctx.Err()}
+				w <- Outcome{Trigger: TriggerReload, Err: fmt.Errorf("%w: %w", ErrStopped, ctx.Err())}
 			}
 			return
 		case <-m.wake:
@@ -146,7 +150,10 @@ func (m *Manager) Reload(ctx context.Context) (Outcome, error) {
 	m.notify()
 	select {
 	case outcome := <-waiter:
-		if outcome.Err != nil {
+		switch {
+		case errors.Is(outcome.Err, ErrStopped):
+			return outcome, outcome.Err
+		case outcome.Err != nil:
 			return outcome, fmt.Errorf("%w: %w", ErrBuildFailed, outcome.Err)
 		}
 		return outcome, nil
@@ -190,6 +197,12 @@ func (m *Manager) run(ctx context.Context, trigger Trigger, signals int) Outcome
 		err = errors.New("build returned no snapshot")
 	}
 	attrs := []any{"trigger", outcome.Trigger, "signals", outcome.Signals, "duration", outcome.Duration}
+	if err != nil && ctx.Err() != nil {
+		// Shutdown, not a failure: the last outcome stays the last real build.
+		outcome.Err = fmt.Errorf("%w: %w", ErrStopped, err)
+		m.logger.InfoContext(ctx, "content rebuild canceled; shutting down", append(attrs, "outcome", "canceled")...)
+		return outcome
+	}
 	if err != nil {
 		outcome.Err = err
 		m.logger.ErrorContext(ctx, "content rebuild failed; previous snapshot still serving",

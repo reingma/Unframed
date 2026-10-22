@@ -9,6 +9,7 @@ import (
 	"crypto/subtle"
 	"encoding/json/v2"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -44,8 +45,30 @@ type Reloader interface {
 // gates. Its String and LogValue never reveal the value.
 type Token struct{ value string }
 
-// NewToken returns a Token for value; an empty value is the zero Token.
-func NewToken(value string) Token { return Token{value: value} }
+// Token lengths bound a token's entropy and size: 32 characters of the
+// base64url alphabet carry 192 bits.
+const (
+	MinTokenLength = 32
+	MaxTokenLength = 256
+)
+
+// ParseToken returns the Token for value; an empty value is the zero Token.
+// A token must be MinTokenLength to MaxTokenLength characters of the URL-safe
+// base64url alphabet [A-Za-z0-9_-], so it travels unescaped in a preview path.
+func ParseToken(value string) (Token, error) {
+	if value == "" {
+		return Token{}, nil
+	}
+	if len(value) < MinTokenLength || len(value) > MaxTokenLength {
+		return Token{}, fmt.Errorf("token must be %d to %d characters, got %d", MinTokenLength, MaxTokenLength, len(value))
+	}
+	for _, c := range []byte(value) {
+		if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '_' || c == '-') {
+			return Token{}, errors.New("token may contain only A-Z, a-z, 0-9, '_' and '-'")
+		}
+	}
+	return Token{value: value}, nil
+}
 
 func (t Token) enabled() bool        { return t.value != "" }
 func (t Token) String() string       { return "<redacted>" }

@@ -23,8 +23,8 @@ import (
 )
 
 const (
-	previewToken = "preview-secret-0123"
-	adminToken   = "admin-secret-4567"
+	previewToken = "preview-secret-0123456789abcdefghijk"
+	adminToken   = "admin-secret-0123456789abcdefghijklm"
 	rootConfig   = "title = \"Unframed\"\n[theme]\naccent = \"#336699\"\nbackground = \"#FFFFFF\"\ntext = \"#111111\"\n"
 )
 
@@ -96,7 +96,15 @@ func newServer(t *testing.T, preview, admin string) *server {
 	done := make(chan struct{})
 	go func() { manager.Run(ctx); close(done) }()
 	t.Cleanup(func() { cancel(); <-done })
-	handlers := api.New(store, manager, api.NewToken(preview), api.NewToken(admin), logger)
+	previewToken, err := api.ParseToken(preview)
+	if err != nil {
+		t.Fatal(err)
+	}
+	adminToken, err := api.ParseToken(admin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	handlers := api.New(store, manager, previewToken, adminToken, logger)
 	return &server{handler: api.Observe(router.New(handlers), logger), store: store, source: src, logs: logs}
 }
 

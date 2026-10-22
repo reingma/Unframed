@@ -1,22 +1,28 @@
-package build
+package build_test
 
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"testing"
+	"time"
 
+	"github.com/reingma/Unframed/backend/internal/build"
 	"github.com/reingma/Unframed/backend/internal/content"
 	"github.com/reingma/Unframed/backend/internal/content/contenttest"
 	"github.com/reingma/Unframed/backend/internal/publish"
+	"github.com/reingma/Unframed/backend/internal/snapshot"
 	"github.com/reingma/Unframed/backend/internal/subscriber/logs"
 )
 
-// BenchmarkBuild builds the 1,000-article tree of scan's BenchmarkScan with
-// a longer article body, so the difference is rendering and publishing.
+// BenchmarkBuild measures one complete content build of the 1,000-article
+// tree of scan's BenchmarkScan with a longer article body: build.Build
+// followed by snapshot.New, which is the work every rebuild performs before
+// the result is served.
 func BenchmarkBuild(b *testing.B) {
 	body := "# Heading\n\nBody text with *emphasis*, `code` and a [link](/a).\n\n" +
 		"| a | b |\n| - | - |\n| 1 | 2 |\n\n- [x] one\n- [ ] two\n\n```go\nfmt.Println(1)\n```\n"
-	files := map[string]string{".configuration": validRoot}
+	files := map[string]string{".configuration": "title = \"Unframed\"\n[theme]\naccent = \"#336699\"\nbackground = \"#FFFFFF\"\ntext = \"#111111\"\n"}
 	for d := range 20 {
 		dir := fmt.Sprintf("Section-%02d", d)
 		files[dir+"/.configuration"] = fmt.Sprintf("order = %d\n[theme]\naccent = \"#228b22\"\nfont = \"serif\"\n", d)
@@ -25,7 +31,8 @@ func BenchmarkBuild(b *testing.B) {
 				"+++\ntitle = \"An article\"\ndescription = \"A summary\"\n[math]\nengine = \"katex\"\n+++\n" + body
 		}
 	}
-	publisher := publish.NewLocal(logs.Subscriber{Logger: quiet()})
+	logger := slog.New(slog.DiscardHandler)
+	publisher := publish.NewLocal(logs.Subscriber{Logger: logger})
 	for name, source := range map[string]content.Source{
 		"fs":     contenttest.NewFS(b, files),
 		"memory": contenttest.MemSource(files),
@@ -33,8 +40,12 @@ func BenchmarkBuild(b *testing.B) {
 		b.Run(name, func(b *testing.B) {
 			b.ReportAllocs()
 			for b.Loop() {
-				result, err := Build(context.Background(), source, publisher, quiet())
-				if err != nil || len(result.Envelopes) != 1000 {
+				result, err := build.Build(context.Background(), source, publisher, logger)
+				if err != nil {
+					b.Fatal(err)
+				}
+				s, err := snapshot.New(result, time.Now())
+				if err != nil || s.Envelopes() != 1000 {
 					b.Fatal(err)
 				}
 			}

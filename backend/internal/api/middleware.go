@@ -82,16 +82,21 @@ func validRequestID(id string) bool {
 	return true
 }
 
-// redactPath replaces the token segment of preview paths.
+// redactPath hides whatever may be a preview token: everything after a
+// preview segment, except that a well-formed /preview/<token>/articles/... or
+// /preview/<token>/diagnostics path keeps its tail.
 func redactPath(p string) string {
-	rest, ok := strings.CutPrefix(p, "/preview/")
-	if !ok {
-		return p
+	if rest, ok := strings.CutPrefix(p, "/preview/"); ok {
+		token, tail, _ := strings.Cut(rest, "/")
+		if token != "" && (tail == "diagnostics" || strings.HasPrefix(tail, "articles/")) {
+			return "/preview/<redacted>/" + tail
+		}
+		return "/preview/<redacted>"
 	}
-	if _, tail, found := strings.Cut(rest, "/"); found {
-		return "/preview/<redacted>/" + tail
+	if before, _, found := strings.Cut(p, "/preview/"); found {
+		return before + "/preview/<redacted>"
 	}
-	return "/preview/<redacted>"
+	return p
 }
 
 type statusRecorder struct {

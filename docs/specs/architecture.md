@@ -59,13 +59,16 @@ and future rendering boundary.
   envelope encoded once, each with a SHA-256 content hash, and the per-item
   diagnostics. Each encoded document is decoded back through the `document`
   decoders; one that fails, such as an unknown `schemaVersion`, is excluded and
-  reported as a diagnostic. `Store` swaps snapshots atomically.
+  reported as a diagnostic, and the manifest drops its links to excluded
+  published envelopes so every nav link resolves. `Store` swaps snapshots
+  atomically.
 - [backend/internal/rebuild](../../backend/internal/rebuild/rebuild.go) owns the
   single build manager, `Manager`. Startup, watch and reload triggers only signal it: at most
   one build runs and one is pending, and further signals join the pending
   build. The startup build must succeed; afterwards a failed build keeps the
   last good snapshot serving. Each build logs its trigger, coalesced signal
-  count, duration and outcome.
+  count, duration and outcome. A build cut short by shutdown is logged as
+  canceled, not failed, and is not recorded as the last outcome.
 - [backend/internal/watch](../../backend/internal/watch/watch.go) is the local
   change notifier, behind the build manager's consumer-owned `Notifier` interface and
   outside the read-only `content.Source`. It watches every non-hidden directory
@@ -159,11 +162,13 @@ the bodies are the snapshot's pre-encoded [documents](document-contract.md):
   shareable credential.
 - `ADMIN_TOKEN` gates reload only, and only as `Authorization: Bearer <token>`.
   Reload returns 404 when the token is unset, 401 for a missing or wrong token,
-  including the preview token, 500 when its build fails and 504 when it waits
-  longer than 8 seconds. Tokens are compared in constant time and never logged.
+  including the preview token, 500 when its build fails, 503 when the server
+  shuts down first and 504 when it waits longer than 8 seconds. A client that
+  disconnects first is logged with status 499. Tokens are compared in constant time and never logged.
 - Next.js sends `X-Request-ID`. Go keeps an ID of at most 128 characters from
   `[A-Za-z0-9._-]` and otherwise generates one, and echoes it in the response.
-  Each request log carries it, the URL path with any preview token redacted,
+  Each request log carries it, the URL path with everything after a `preview`
+  segment redacted (a well-formed preview path keeps its tail),
   the status, the duration and the serving build ID.
 - Every response comes from one snapshot. Requests never read the content
   source; the watcher keeps snapshots fresh. Content hashes are computed but no

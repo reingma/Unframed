@@ -30,6 +30,10 @@ type Snapshots interface {
 	Current() *snapshot.Snapshot
 }
 
+// StatusClientClosedRequest is logged when the client disconnects before a
+// response, following the nginx convention.
+const StatusClientClosedRequest = 499
+
 // Reloader runs reloads and reports the latest build outcome.
 type Reloader interface {
 	Reload(ctx context.Context) (rebuild.Outcome, error)
@@ -202,13 +206,16 @@ func (h *Handler) Reload(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 	outcome, err := h.rebuilds.Reload(ctx)
 	switch {
+	case errors.Is(err, rebuild.ErrStopped):
+		h.writeJSON(w, r, http.StatusServiceUnavailable, errorBody{Error: "server shutting down"})
 	case errors.Is(err, rebuild.ErrBuildFailed):
 		h.writeJSON(w, r, http.StatusInternalServerError, errorBody{Error: "build failed; see diagnostics"})
 	case errors.Is(err, context.DeadlineExceeded):
 		h.writeJSON(w, r, http.StatusGatewayTimeout, errorBody{Error: "reload timed out"})
 	case err != nil:
-		// The client went away; nobody reads a response.
-		h.logger.InfoContext(r.Context(), "reload abandoned", "error", err, requestIDAttr(r.Context()))
+		// The client went away; nobody reads the response, but the request
+		// log records it as closed by the client.
+		w.WriteHeader(StatusClientClosedRequest)
 	default:
 		setBuildID(r.Context(), outcome.BuildID)
 		h.writeJSON(w, r, http.StatusOK, reloadResponse{

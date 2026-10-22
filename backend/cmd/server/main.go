@@ -32,9 +32,13 @@ func main() {
 
 func run(ctx context.Context) error {
 	logger := slog.Default()
-	addr := os.Getenv("BACKEND_ADDR")
-	if addr == "" {
-		addr = ":8080"
+	addr, err := listenAddr(os.Getenv("BACKEND_ADDR"))
+	if err != nil {
+		return err
+	}
+	preview, admin, err := tokens(os.Getenv("PREVIEW_TOKEN"), os.Getenv("ADMIN_TOKEN"))
+	if err != nil {
+		return err
 	}
 	root := os.Getenv("CONTENT_ROOT")
 	if root == "" {
@@ -65,8 +69,7 @@ func run(ctx context.Context) error {
 		}
 	}()
 
-	handlers := api.New(store, manager,
-		api.NewToken(os.Getenv("PREVIEW_TOKEN")), api.NewToken(os.Getenv("ADMIN_TOKEN")), logger)
+	handlers := api.New(store, manager, preview, admin, logger)
 	server := &http.Server{
 		Addr:              addr,
 		Handler:           api.Observe(router.New(handlers), logger),

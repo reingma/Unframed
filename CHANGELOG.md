@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Stable URLs: articles and directories list former paths under `aliases`, and
+  the public site answers them with a permanent 308 redirect to the current
+  path, keeping the suffix below a directory alias. Go validates aliases at scan
+  time, reporting self-aliases, duplicates, published paths and loops as
+  per-item errors, and publishes the redirect map as an additive `redirects`
+  manifest member. Draft aliases publish nothing. A new `frontend-redirect`
+  performance workload measures a redirect hit.
+
 - Reader pages rendered by Next.js from the Go JSON API: articles and
   directory landing pages with their resolved theme, generated listings for
   directories without `index.md`, and navigation from the manifest. Drafts

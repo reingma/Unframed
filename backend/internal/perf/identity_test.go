@@ -6,6 +6,7 @@ import (
 	"math/rand/v2"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -105,13 +106,13 @@ func TestCheckClean(t *testing.T) {
 		t.Fatalf("ignored files and history changes must be allowed: %v", err)
 	}
 	write("notes.txt", "untracked")
-	if err := CheckClean(ctx, dir, "perf/history"); err == nil {
-		t.Fatal("expected an untracked file to be refused")
+	if err := CheckClean(ctx, dir, "perf/history"); err == nil || !strings.Contains(err.Error(), "(notes.txt)") {
+		t.Fatalf("expected the untracked file to be refused by name, got %v", err)
 	}
 	os.Remove(filepath.Join(dir, "notes.txt"))
 	write("app.txt", "v2")
-	if err := CheckClean(ctx, dir, "perf/history"); err == nil {
-		t.Fatal("expected a modified tracked file to be refused")
+	if err := CheckClean(ctx, dir, "perf/history"); err == nil || !strings.Contains(err.Error(), "(app.txt)") {
+		t.Fatalf("expected the modified file to be refused by name, got %v", err)
 	}
 }
 

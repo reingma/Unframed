@@ -117,11 +117,13 @@ func hashTree(ctx context.Context, repoDir string, entries []string) (string, er
 // historyDir; ignored files are allowed. A measurement taken there would not
 // be the content its hash names.
 func CheckClean(ctx context.Context, repoDir, historyDir string) error {
-	out, err := gitOutput(ctx, repoDir, "status", "--porcelain", "-z", "--untracked-files=all",
-		"--", ".", ":(exclude)"+strings.Trim(historyDir, "/"))
+	// Raw output: porcelain entries start with a space-padded status.
+	raw, err := exec.CommandContext(ctx, "git", "-C", repoDir, "status", "--porcelain", "-z",
+		"--untracked-files=all", "--", ".", ":(exclude)"+strings.Trim(historyDir, "/")).Output()
 	if err != nil {
-		return err
+		return fmt.Errorf("git status: %w", err)
 	}
+	out := string(raw)
 	if out == "" {
 		return nil
 	}

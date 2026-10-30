@@ -88,6 +88,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Performance history records (schema version 3) are bound to the measured
+  content by a `content_hash`, the git tree ID of everything outside
+  `perf/history/`, so the merge gate passes after squash and rebase merges.
+  `make perf-run` refuses a dirty worktree and stamps the hash into every
+  artifact, `compress` refuses mixed hashes, and `perf locate` finds the
+  commit on `main` a record measured; `compare` and `report` show it.
 - Consolidated documentation around canonical sources and readable prose, moved
   existing ESLint rationale into an ADR, and replaced repeated skill/host policy
   with links while preserving the methods, safeguards and executable environment.

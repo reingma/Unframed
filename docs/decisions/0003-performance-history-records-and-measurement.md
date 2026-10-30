@@ -1,7 +1,8 @@
 # 0003 — Performance history records and measurement
 
 Status: accepted in ENG-29 planning (2026-10-15); backend machinery implemented
-under ENG-30; frontend measurements implemented under ENG-31.
+under ENG-30; frontend measurements implemented under ENG-31. Record binding
+amended by [ADR 0008](0008-content-bound-history-records.md) under ENG-47.
 
 ## Context
 

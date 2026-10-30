@@ -240,8 +240,10 @@ and runs nothing. Committed performance history lives under
 `main`, produced by the local backend and frontend runners on the designated
 machine and validated for shape by `make check`. A `pull_request` CI job runs
 the `perf gate` presence-and-binding check: the diff must append a record,
-committed records are immutable, and the newest record's measured revision
-must match the merged content outside `perf/history/`. The gate measures
+committed records are immutable, and the newest record's `content_hash` (the
+tree ID of the measured content outside `perf/history/`, captured when the run
+starts on a clean worktree) must match the merge head's, so squash and rebase
+merges stay verifiable ([ADR 0008](../decisions/0008-content-bound-history-records.md)). The gate measures
 nothing — CI never produces records; there is no performance-threshold gate
 and no per-component frontend measurement; raw run artifacts are local-only.
 The [security review skill](../../.agents/skills/security-review/SKILL.md) reviews

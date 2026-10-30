@@ -82,21 +82,37 @@ func validRequestID(id string) bool {
 	return true
 }
 
+const previewSegment = "/preview/"
+
 // redactPath hides whatever may be a preview token: everything after a
-// preview segment, except that a well-formed /preview/<token>/articles/... or
-// /preview/<token>/diagnostics path keeps its tail.
+// preview segment in any letter case, except that a well-formed
+// /preview/<token>/articles/... or /preview/<token>/diagnostics path keeps a
+// tail that has no preview segment of its own.
 func redactPath(p string) string {
-	if rest, ok := strings.CutPrefix(p, "/preview/"); ok {
-		token, tail, _ := strings.Cut(rest, "/")
-		if token != "" && (tail == "diagnostics" || strings.HasPrefix(tail, "articles/")) {
-			return "/preview/<redacted>/" + tail
+	i := indexPreviewSegment(p)
+	if i < 0 {
+		return p
+	}
+	head := p[:i+len(previewSegment)]
+	if i == 0 {
+		token, tail, _ := strings.Cut(p[len(head):], "/")
+		wellFormed := tail == "diagnostics" || strings.HasPrefix(tail, "articles/")
+		if token != "" && wellFormed && indexPreviewSegment("/"+tail) < 0 {
+			return head + "<redacted>/" + tail
 		}
-		return "/preview/<redacted>"
 	}
-	if before, _, found := strings.Cut(p, "/preview/"); found {
-		return before + "/preview/<redacted>"
+	return head + "<redacted>"
+}
+
+// indexPreviewSegment returns the index of the first "/preview/" in p,
+// compared case-insensitively, or -1.
+func indexPreviewSegment(p string) int {
+	for i := 0; i+len(previewSegment) <= len(p); i++ {
+		if strings.EqualFold(p[i:i+len(previewSegment)], previewSegment) {
+			return i
+		}
 	}
-	return p
+	return -1
 }
 
 type statusRecorder struct {

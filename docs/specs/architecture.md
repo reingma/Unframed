@@ -92,11 +92,13 @@ and future rendering boundary.
   schemas, committed history records under `perf/history/`, and gitignored raw
   runs and reports. [ADR 0003](../decisions/0003-performance-history-records-and-measurement.md)
   records the design.
-- [frontend/src/app](../../frontend/src/app/page.tsx) owns Next.js App Router pages,
-  layout and presentation, using React and strict TypeScript.
+- [frontend/src/app](../../frontend/src/app) owns Next.js App Router pages,
+  layout and presentation, using React and strict TypeScript. Shared page
+  components live in its private `_components` folder.
 - [frontend/src/lib](../../frontend/src/lib/backend.ts) owns server-side
-  communication and Zod validation of external responses. Internal components do
-  not need Zod wrappers; Go retains backend validation responsibility.
+  communication and the [Zod schemas](../../frontend/src/lib/documents.ts) of
+  external responses. Internal components do not need Zod wrappers; Go retains
+  backend validation responsibility.
 - [frontend/e2e](../../frontend/e2e) contains production integration tests.
 - [infra/terraform](../../infra/terraform/README.md) contains guidance only.
 - [.agents/skills](../../.agents/skills) contains repository-local methods and
@@ -126,23 +128,16 @@ Go exposes `GET /healthcheck` with HTTP 200, `Content-Type: application/json` an
 `{"status":"ok"}`. It checks liveness, not readiness of future dependencies.
 
 The request path is **browser → Next.js → Go**. The browser does not call Go
-directly; this slice needs no browser CORS configuration. Next.js fetches on each
-page request without caching. Reloading checks again; there is no polling or
-refresh widget. Its production build succeeds without a running backend.
+directly, so Go needs no browser CORS configuration. Next.js renders every page
+on the server, fetching on each page request without caching, and its
+production build succeeds without a running backend.
 
 `BACKEND_URL` is a configurable, server-only absolute backend origin.
 Never prefix it with `NEXT_PUBLIC_`. Go's `BACKEND_ADDR` controls its listen address;
 changing either address requires no source edit. `BACKEND_URL` defaults to
 `http://127.0.0.1:8080` and `BACKEND_ADDR` to `127.0.0.1:8080`. Only the Next.js
 server calls Go, so `BACKEND_ADDR` must name `localhost` or a loopback or
-private IP; an unspecified (`:8080`, `0.0.0.0`) or public address stops startup. Each health fetch has a
-two-second timeout.
-
-The helper resolves the health endpoint from the origin root and infers its
-response type from a Zod schema requiring `status: "ok"`. Valid data produces the
-available presentation and displays the response. Connection failures, timeouts,
-non-success HTTP responses, malformed JSON and schema-invalid data produce the
-unavailable presentation, not healthy data.
+private IP; an unspecified (`:8080`, `0.0.0.0`) or public address stops startup.
 
 Go serves the build output as JSON. `Content-Type` is `application/json`, and
 the bodies are the snapshot's pre-encoded [documents](document-contract.md):
@@ -178,6 +173,35 @@ the bodies are the snapshot's pre-encoded [documents](document-contract.md):
   source; the watcher keeps snapshots fresh. Content hashes are computed but no
   caching headers are served.
 
+Next.js serves these pages; [ADR 0007](../decisions/0007-nextjs-page-resolution-and-preview-routes.md)
+records why:
+
+| Page                                    | Rendering                                                                                                                                                                    |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/<slug…>`                              | Looks the path up in the manifest. An article or a directory with `hasIndex` renders its envelope; another directory renders a generated listing of its children; else 404. |
+| `/preview/<token>/articles/<slug…>`     | Renders Go's preview envelope, draft included, or a directory listing. Another miss shows Go's validation errors for the path.                                              |
+| `/preview/<token>/diagnostics`          | Renders Go's diagnostics report.                                                                                                                                             |
+
+- Every page shows the site title and the manifest navigation in Go's order.
+  The page theme is set as CSS custom properties from the envelope's
+  `resolvedConfig`, or the site theme on listings, so the stylesheet is static.
+  The envelope body is inserted as Go rendered it.
+- Responses are validated with Zod before rendering. A manifest or envelope
+  with a missing or unknown `schemaVersion`, schema-invalid data, malformed
+  JSON, a status other than 200 or 404, a connection failure or a two-second
+  timeout renders the error page with HTTP 500, never partial data. Each failure
+  is logged as JSON with the request ID and the Go path, with the preview token
+  redacted.
+- A public path that is not in the manifest, including drafts, invalid items
+  and non-slug segments, is a 404. A preview token that is not 32 to 256
+  characters of `[A-Za-z0-9_-]` is a 404 without a request to Go, and Go's
+  public 404 for a wrong token is a 404 too.
+- Each page request makes one correlation ID and sends it as `X-Request-ID` on
+  all its Go requests.
+- Preview pages send `noindex, nofollow` and `no-referrer`, and their links
+  stay under the preview prefix. A top-level content item with the slug
+  `preview` is unreachable on the public site; Go does not reject it yet.
+
 Remote event delivery,
 appearance configuration beyond the theme, S3 or other content providers,
 math, authentication, rate limiting and database storage are not implemented. The API has
@@ -200,7 +224,8 @@ Behavior is exercised by the [health](../../backend/internal/health/handler_test
 [subscriber](../../backend/internal/subscriber),
 [router](../../backend/internal/router/router_test.go),
 [communication](../../frontend/src/lib/backend.test.ts),
-[presentation](../../frontend/src/app/health-status.test.tsx) and
+[schema](../../frontend/src/lib/documents.test.ts),
+[presentation](../../frontend/src/app/_components/components.test.tsx) and
 [integration](../../frontend/e2e) tests. The [agent verification policy](../../AGENTS.md#setup-and-verification)
 governs test selection.
 

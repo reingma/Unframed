@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Reader pages rendered by Next.js from the Go JSON API: articles and
+  directory landing pages with their resolved theme, generated listings for
+  directories without `index.md`, and navigation from the manifest. Drafts
+  render only under `/preview/<token>/articles/<slug…>`, with build validation
+  errors at `/preview/<token>/diagnostics`. Responses are validated with Zod,
+  including `schemaVersion`; unpublished paths are 404s and a failing or
+  invalid backend response is a 500 error page. Each page request sends one
+  `X-Request-ID` to Go. New `frontend-article` and `frontend-listing`
+  performance workloads measure an article and a listing.
+
 - A JSON API serving the content build: `GET /manifest`, `GET /articles/*path`
   for published envelopes, token-gated draft previews with validation errors
   and a diagnostics report, and a token-gated synchronous `POST /admin/reload`.

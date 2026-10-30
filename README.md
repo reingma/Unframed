@@ -29,21 +29,20 @@ In a second terminal:
 make dev-frontend
 ```
 
-Open **http://localhost:3000**. With Go running, the page shows “Backend available”
-and its actual `{"status":"ok"}` response. Stop Go and reload to see “Backend
-unavailable.” Reloading checks again; there is no polling.
-
-The page fetches on each request with no caching and a two-second timeout.
-The endpoint checks backend liveness only, not readiness of future dependencies.
-See the [HTTP contract](docs/specs/architecture.md#http-and-rendering-contract)
-for the request path and failure behavior.
+Open **http://localhost:3000** to read [examples/site](examples/site); edits to
+it appear on reload. With `PREVIEW_TOKEN` set for Go, drafts render at
+`http://localhost:3000/preview/<token>/articles/<slug…>` and build validation
+errors at `http://localhost:3000/preview/<token>/diagnostics`. If Go is down,
+pages show “Content unavailable.” See the
+[HTTP and rendering contract](docs/specs/architecture.md#http-and-rendering-contract)
+for the pages and failure behavior.
 
 ## Configuration
 
 | Variable        | Process        | Default                 | Purpose                                                                                                                                                                 |
 | --------------- | -------------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `BACKEND_ADDR`  | Go             | `127.0.0.1:8080`        | Listen address, such as `127.0.0.1:9090`. Must be `localhost` or a loopback or private IP; startup fails otherwise.                                                     |
-| `BACKEND_URL`   | Next.js server | `http://127.0.0.1:8080` | Absolute backend origin; `/healthcheck` is resolved from its root.                                                                                                      |
+| `BACKEND_URL`   | Next.js server | `http://127.0.0.1:8080` | Absolute backend origin; API routes are resolved from its root.                                                                                                        |
 | `CONTENT_ROOT`  | Go             | none, required          | Content directory to build and watch. An invalid root stops startup. `make dev-backend` defaults it to [examples/site](examples/site).                                  |
 | `PREVIEW_TOKEN` | Go             | unset: preview disabled | Shareable token for the preview and diagnostics routes. 32–256 characters of `[A-Za-z0-9_-]`; generate one with `openssl rand -base64 32 \| tr '+/' '-_' \| tr -d '='`. |
 | `ADMIN_TOKEN`   | Go             | unset: reload disabled  | Bearer token for `POST /admin/reload`. Same format as `PREVIEW_TOKEN` and must differ from it. Never put it in a URL.                                                   |

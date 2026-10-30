@@ -51,6 +51,18 @@
       "repetitions": 50
     },
     {
+      "id": "frontend-article",
+      "kind": "browser",
+      "target": "/essays/hello-world",
+      "repetitions": 50
+    },
+    {
+      "id": "frontend-listing",
+      "kind": "browser",
+      "target": "/essays",
+      "repetitions": 50
+    },
+    {
       "id": "frontend-bundle",
       "kind": "build",
       "target": "frontend/.next"

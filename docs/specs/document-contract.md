@@ -6,7 +6,8 @@ for subscribers. This page is their canonical description;
 [document.go](../../backend/internal/document/document.go) implements it and
 [ADR 0005](../decisions/0005-document-envelope-rendering-and-fanout.md) records
 the rationale. The [authoring schema](content-authoring.md) describes the input.
-These documents are not served over HTTP yet.
+Go serves them over the [JSON API](architecture.md#http-and-rendering-contract),
+and the frontend validates them with [matching Zod schemas](../../frontend/src/lib/documents.ts).
 
 ## Versioning
 

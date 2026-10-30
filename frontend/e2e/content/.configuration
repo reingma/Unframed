@@ -1,0 +1,7 @@
+title = "Fixture Site"
+description = "Content for end-to-end tests."
+
+[theme]
+accent = "#336699"
+background = "#FFFDF8"
+text = "#1D1D1D"

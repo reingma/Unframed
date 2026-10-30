@@ -92,6 +92,9 @@ func New(result *build.Result, builtAt time.Time) (*Snapshot, error) {
 
 	manifest := result.Manifest
 	manifest.Nav = withoutExcluded(manifest.Nav, excluded)
+	manifest.Redirects = slices.DeleteFunc(slices.Clone(manifest.Redirects), func(r document.Redirect) bool {
+		return !r.Prefix && excluded[r.To]
+	})
 	data, err := json.Marshal(manifest)
 	if err != nil {
 		return nil, fmt.Errorf("encode manifest: %w", err)

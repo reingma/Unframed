@@ -20,7 +20,8 @@ import (
 var tree = contenttest.MemSource{
 	".configuration":              "title = \"Unframed\"\n[theme]\naccent = \"#336699\"\nbackground = \"#FFFFFF\"\ntext = \"#111111\"\n",
 	"index.md":                    "Home.\n",
-	"Essays/Hello-World.md":       "# Hello\n",
+	"Essays/Hello-World.md":       "+++\naliases = [\"/essays/hello\"]\n+++\n# Hello\n",
+	"Essays/.configuration":       "aliases = [\"/writing\"]\n",
 	"Essays/Hello-World.draft.md": "Draft.\n",
 	"Essays/Broken.md":            "+++\n[theme]\naccent = \"red\"\n+++\nNever rendered.\n",
 	"Bad-Dir/.configuration":      "order = \"first\"\n",
@@ -238,6 +239,14 @@ func TestManifestLinksOnlyServedEnvelopes(t *testing.T) {
 				}
 			}
 			walk(manifest.Nav)
+			for _, r := range manifest.Redirects {
+				if _, ok := s.Envelope(r.To, false); !r.Prefix && !ok {
+					t.Fatalf("manifest redirects to %s, which is not served", r.To)
+				}
+			}
+			if len(result.Manifest.Redirects) != 3 {
+				t.Fatalf("build redirects = %v, want both aliases and their chain", result.Manifest.Redirects)
+			}
 			if _, ok := result.Envelopes[key]; !ok || len(result.Manifest.Nav.Children) == 0 {
 				t.Fatal("New modified the build result")
 			}

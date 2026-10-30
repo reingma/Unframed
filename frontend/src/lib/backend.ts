@@ -41,6 +41,19 @@ export class BackendError extends Error {
 // fetch the request makes and sent to Go as X-Request-ID.
 export const requestId = cache((): string => crypto.randomUUID());
 
+// logRedirect records an alias redirect with the request's correlation ID.
+export function logRedirect(from: string, to: string): void {
+  console.info(
+    JSON.stringify({
+      level: "info",
+      msg: "redirect",
+      request_id: requestId(),
+      from,
+      to,
+    }),
+  );
+}
+
 function fail(
   reason: FailureReason,
   logPath: string,

@@ -51,6 +51,7 @@ const manifest: Manifest = {
     theme: { accent: "#336699", background: "#ffffff", text: "#111111" },
   },
   nav: root,
+  redirects: [],
 };
 
 const links = (container: HTMLElement) =>

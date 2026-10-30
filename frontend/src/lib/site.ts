@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 
-import type { NavNode, Theme } from "./documents";
+import type { NavNode, Redirect, Theme } from "./documents";
 
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const tokenPattern = /^[A-Za-z0-9_-]{32,256}$/;
@@ -29,6 +29,25 @@ export function findNode(root: NavNode, urlPath: string): NavNode | undefined {
     }
   }
   return undefined;
+}
+
+// resolveRedirect returns where a path that is not published redirects, or
+// undefined. An exact alias or a directory alias at or above the path
+// matches, keeping the path's suffix below it; the deepest match wins.
+export function resolveRedirect(
+  redirects: readonly Redirect[],
+  urlPath: string,
+): string | undefined {
+  let match: Redirect | undefined;
+  for (const redirect of redirects) {
+    const matches =
+      urlPath === redirect.from ||
+      (redirect.prefix && urlPath.startsWith(redirect.from + "/"));
+    if (matches && (!match || redirect.from.length > match.from.length)) {
+      match = redirect;
+    }
+  }
+  return match && match.to + urlPath.slice(match.from.length);
 }
 
 // A base prefixes every site link: "" for the public site, or the preview

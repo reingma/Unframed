@@ -1,5 +1,6 @@
 +++
 description = "Alpha description"
+aliases = ["/guides/first"]
 +++
 
 # Alpha guide

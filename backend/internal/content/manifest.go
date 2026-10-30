@@ -24,6 +24,10 @@ type Node struct {
 	Description string
 	Order       int
 	Ordered     bool
+	// Aliases are the node's former URL paths from its configuration; a
+	// landing page's directory holds them. Manifest.Redirects publishes
+	// the valid ones.
+	Aliases []Alias
 	// Draft marks an "X.draft.md" article. Drafts are never in a nav tree.
 	Draft bool
 	// Landing marks an "index.md" article, its directory's landing content.
@@ -51,6 +55,15 @@ type ValidationError struct {
 func (e ValidationError) Error() string { return e.Path + ": " + e.Err.Error() }
 func (e ValidationError) Unwrap() error { return e.Err }
 
+// Redirect sends requests for a former URL path to a published one. A
+// prefix redirect, from a directory alias, also sends every path below From
+// to the same suffix below To.
+type Redirect struct {
+	From   string
+	To     string
+	Prefix bool
+}
+
 // Manifest is the validated content tree, fully derived from its Source.
 type Manifest struct {
 	// Root is the public nav tree.
@@ -60,6 +73,10 @@ type Manifest struct {
 	// Assets lists the non-Markdown files of valid directories, ordered by
 	// Path. They are served at their tree path and are not part of the nav tree.
 	Assets []File
+	// Redirects maps the aliases of published nodes to their URL paths,
+	// ordered by From, with chains resolved to their final target. No From
+	// is a published path.
+	Redirects []Redirect
 	// Errors lists per-item validation errors, ordered by Path.
 	Errors []ValidationError
 }

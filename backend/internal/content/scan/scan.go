@@ -24,6 +24,14 @@ var (
 	ErrSlugCollision = errors.New("slug collision")
 	// ErrUnreadable reports a content file the source could not read.
 	ErrUnreadable = errors.New("unreadable content file")
+	// ErrSelfAlias reports an alias equal to its own node's URL path.
+	ErrSelfAlias = errors.New("self alias")
+	// ErrDuplicateAlias reports an alias claimed by more than one node.
+	ErrDuplicateAlias = errors.New("duplicate alias")
+	// ErrAliasShadowsPath reports an alias equal to a published URL path.
+	ErrAliasShadowsPath = errors.New("alias shadows a published path")
+	// ErrRedirectLoop reports aliases that redirect back to themselves.
+	ErrRedirectLoop = errors.New("redirect loop")
 )
 
 const (
@@ -51,6 +59,7 @@ func Scan(ctx context.Context, source content.Source, logger *slog.Logger) (*con
 	if err := s.fill(root, tree); err != nil {
 		return nil, err
 	}
+	redirects := s.redirects(root)
 	slices.SortFunc(s.articles, func(a, b *content.Node) int { return cmp.Compare(a.SourcePath, b.SourcePath) })
 	slices.SortFunc(s.assets, func(a, b content.File) int { return cmp.Compare(a.Path, b.Path) })
 	slices.SortStableFunc(s.errors, func(a, b content.ValidationError) int { return cmp.Compare(a.Path, b.Path) })
@@ -62,8 +71,8 @@ func Scan(ctx context.Context, source content.Source, logger *slog.Logger) (*con
 	}
 	logger.InfoContext(ctx, "content tree scanned",
 		"files", len(files), "articles", len(s.articles), "drafts", drafts, "assets", len(s.assets),
-		"validation_errors", len(s.errors), "duration", time.Since(started))
-	return &content.Manifest{Root: root, Articles: s.articles, Assets: s.assets, Errors: s.errors}, nil
+		"redirects", len(redirects), "validation_errors", len(s.errors), "duration", time.Since(started))
+	return &content.Manifest{Root: root, Articles: s.articles, Assets: s.assets, Redirects: redirects, Errors: s.errors}, nil
 }
 
 type treeDir struct {
@@ -117,6 +126,8 @@ type scanner struct {
 	articles []*content.Node
 	assets   []content.File
 	errors   []content.ValidationError
+	// aliased lists every valid node with aliases, published or not.
+	aliased []*content.Node
 }
 
 func (s *scanner) report(itemPath string, err error) {
@@ -199,6 +210,9 @@ func (s *scanner) fill(dir *content.Node, tree *treeDir) error {
 
 	for _, c := range s.withoutCollisions(candidates) {
 		node := c.node
+		if len(node.Aliases) > 0 {
+			s.aliased = append(s.aliased, node)
+		}
 		switch {
 		case node.Kind == content.KindDirectory:
 			if err := s.fill(node, c.dir); err != nil {
@@ -353,6 +367,7 @@ func applyConfig(node, parent *content.Node, name content.Name, config content.C
 	}
 	node.Description = config.Description
 	node.Order, node.Ordered = config.Order, config.Ordered
+	node.Aliases = config.Aliases
 	node.Theme = parent.Theme.Override(config.Theme)
 	node.URLPath = joinURL(parent.URLPath, node.Slug)
 }

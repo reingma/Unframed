@@ -106,3 +106,32 @@ func checkDerivations(t *testing.T, name Name) {
 		t.Fatalf("derived slug %q does not parse: %v", slug, err)
 	}
 }
+
+var aliasGrammar = regexp.MustCompile(`^(/[a-z0-9]+(-[a-z0-9]+)*)+$`)
+
+// FuzzParseAlias checks the parser against the grammar oracle: accepted
+// aliases are internal slug paths kept unchanged, so no scheme, host, dot
+// segment or encoded separator can become a redirect source.
+func FuzzParseAlias(f *testing.F) {
+	for _, seed := range []string{
+		"/old", "/essays/old-title", "/", "", "old", "/old/", "//evil.example", "https://evil.example",
+		"/a//b", "/a/../b", "/A", "/a%2fb", "/a\\b", "/a?b", "/a#b", "/a b", "/é",
+	} {
+		f.Add(seed)
+	}
+	f.Fuzz(func(t *testing.T, raw string) {
+		alias, err := ParseAlias(raw)
+		if accepted := err == nil; accepted != aliasGrammar.MatchString(raw) {
+			t.Fatalf("ParseAlias(%q) accepted=%v, grammar disagrees", raw, accepted)
+		}
+		if err != nil {
+			if !errors.Is(err, ErrInvalidAlias) || alias != (Alias{}) {
+				t.Fatalf("rejected alias %q escaped as %q, %v", raw, alias, err)
+			}
+			return
+		}
+		if alias.String() != raw {
+			t.Fatalf("ParseAlias(%q) = %q, want it unchanged", raw, alias)
+		}
+	})
+}

@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import type { NavNode } from "./documents";
+import type { NavNode, Redirect } from "./documents";
 import {
   findNode,
   isPreviewToken,
   pageTitle,
   previewBase,
+  resolveRedirect,
   siteHref,
   themeStyle,
   urlPathFromSlug,
@@ -66,6 +67,71 @@ describe("findNode", () => {
       expect(findNode(root, urlPath)).toBeUndefined();
     },
   );
+});
+
+describe("resolveRedirect", () => {
+  const redirects: Redirect[] = [
+    { from: "/old", to: "/new", prefix: true },
+    { from: "/old/deep", to: "/elsewhere", prefix: true },
+    { from: "/old/deep/page", to: "/page", prefix: false },
+    { from: "/renamed", to: "/guides/alpha", prefix: false },
+  ];
+
+  it.each([
+    ["/renamed", "/guides/alpha"],
+    ["/old", "/new"],
+    ["/old/a/b", "/new/a/b"],
+    ["/old/deep", "/elsewhere"],
+    ["/old/deep/x", "/elsewhere/x"],
+    ["/old/deep/page", "/page"],
+    ["/old/deep/page/x", "/elsewhere/page/x"],
+  ])("redirects %s to %s", (urlPath, target) => {
+    expect(resolveRedirect(redirects, urlPath)).toBe(target);
+  });
+
+  it.each(["/renamed/x", "/olden", "/ol", "/", "/new", "/guides/alpha"])(
+    "does not redirect %s",
+    (urlPath) => {
+      expect(resolveRedirect(redirects, urlPath)).toBeUndefined();
+    },
+  );
+
+  it("matches the deepest alias for every path, in any order", () => {
+    const segments = ["a", "b"];
+    const paths = ["/a", "/b", "/a/a", "/a/b", "/b/a", "/a/a/b", "/a/b/a"];
+    const all = paths.map((from, i) => ({
+      from,
+      to: `/t${i}`,
+      prefix: i % 3 !== 0,
+    }));
+    let seed = 50;
+    const random = () => (seed = (seed * 48271) % 2147483647) / 2147483647;
+    for (let trial = 0; trial < 200; trial++) {
+      const chosen = all
+        .filter(() => random() < 0.5)
+        .sort(() => random() - 0.5);
+      for (const depth of [1, 2, 3, 4]) {
+        const parts = Array.from(
+          { length: depth },
+          () => segments[Math.floor(random() * segments.length)],
+        );
+        const urlPath = "/" + parts.join("/");
+        const matches = chosen.filter(
+          (r) =>
+            urlPath === r.from ||
+            (r.prefix && urlPath.startsWith(r.from + "/")),
+        );
+        const deepest = matches.sort(
+          (x, y) => y.from.length - x.from.length,
+        )[0];
+        const target = resolveRedirect(chosen, urlPath);
+        expect(target).toBe(
+          deepest && deepest.to + urlPath.slice(deepest.from.length),
+        );
+        if (target) expect(target.startsWith("/t")).toBe(true);
+      }
+    }
+  });
 });
 
 describe("links", () => {

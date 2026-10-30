@@ -63,6 +63,12 @@
       "repetitions": 50
     },
     {
+      "id": "frontend-redirect",
+      "kind": "browser",
+      "target": "/essays/hello",
+      "repetitions": 50
+    },
+    {
       "id": "frontend-bundle",
       "kind": "build",
       "target": "frontend/.next"

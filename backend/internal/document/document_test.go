@@ -42,6 +42,11 @@ func tree(t testing.TB) *content.Node {
 	return &content.Node{Kind: content.KindDirectory, URLPath: "/", Title: "Unframed", Description: "A blog", Theme: theme(t), Children: []*content.Node{maths}}
 }
 
+var redirects = []content.Redirect{
+	{From: "/maths", To: "/mathematics", Prefix: true},
+	{From: "/mathematics/martingales", To: "/mathematics/on-martingales"},
+}
+
 func golden(t *testing.T, name string, v any) []byte {
 	t.Helper()
 	got, err := json.Marshal(v, jsontext.WithIndent("  "))
@@ -78,7 +83,7 @@ func TestEnvelopeGoldenAndRoundTrip(t *testing.T) {
 }
 
 func TestManifestGoldenAndRoundTrip(t *testing.T) {
-	manifest := NewManifest(tree(t))
+	manifest := NewManifest(tree(t), redirects)
 	data := golden(t, "manifest.json", manifest)
 	decoded, err := DecodeManifest(data)
 	if err != nil {
@@ -161,6 +166,16 @@ func TestDecodeRejectsInvalidDocuments(t *testing.T) {
 		"article with index": func(d map[string]any) { child(d)["children"].([]any)[0].(map[string]any)["hasIndex"] = true },
 		"empty nested title": func(d map[string]any) { child(d)["title"] = "" },
 		"missing site theme": func(d map[string]any) { delete(d["site"].(map[string]any), "theme") },
+		"external redirect": func(d map[string]any) {
+			d["redirects"].([]any)[0].(map[string]any)["from"] = "https://evil.example"
+		},
+		"scheme-relative redirect": func(d map[string]any) { d["redirects"].([]any)[0].(map[string]any)["from"] = "//evil.example" },
+		"relative redirect target": func(d map[string]any) { d["redirects"].([]any)[0].(map[string]any)["to"] = "mathematics" },
+		"repeated redirect": func(d map[string]any) {
+			list := d["redirects"].([]any)
+			d["redirects"] = append(list, list[0])
+		},
+		"redirects not a list": func(d map[string]any) { d["redirects"] = map[string]any{} },
 	}
 	for name, change := range manifestCases {
 		t.Run("manifest/"+name, func(t *testing.T) {
@@ -183,10 +198,24 @@ func TestDecodeIgnoresUnknownMembers(t *testing.T) {
 	if _, err := DecodeEnvelope(data); err != nil {
 		t.Fatalf("an additive member was rejected: %v", err)
 	}
+	data = mutate(t, "manifest.json", func(d map[string]any) {
+		d["addedLater"] = true
+		d["redirects"].([]any)[0].(map[string]any)["status"] = 302
+	})
+	if manifest, err := DecodeManifest(data); err != nil || len(manifest.Redirects) != len(redirects) {
+		t.Fatalf("additive manifest members were rejected: %+v, %v", manifest.Redirects, err)
+	}
+}
+
+func TestDecodeManifestWithoutRedirects(t *testing.T) {
+	data := mutate(t, "manifest.json", func(d map[string]any) { delete(d, "redirects") })
+	if manifest, err := DecodeManifest(data); err != nil || manifest.Redirects == nil || len(manifest.Redirects) != 0 {
+		t.Fatalf("manifest from before redirects = %+v, %v; want no redirects", manifest.Redirects, err)
+	}
 }
 
 func TestManifestOmitsInternals(t *testing.T) {
-	data, err := json.Marshal(NewManifest(tree(t)))
+	data, err := json.Marshal(NewManifest(tree(t), redirects))
 	if err != nil {
 		t.Fatal(err)
 	}

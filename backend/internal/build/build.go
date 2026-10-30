@@ -83,7 +83,7 @@ func Build(ctx context.Context, source content.Source, publisher publish.Publish
 		events.validationFailed(validationErr)
 	}
 
-	result := &Result{BuildID: buildID, Content: manifest, Manifest: document.NewManifest(manifest.Root), Envelopes: envelopes}
+	result := &Result{BuildID: buildID, Content: manifest, Manifest: document.NewManifest(manifest.Root, manifest.Redirects), Envelopes: envelopes}
 	err = events.publish(ctx, publisher)
 	logger.InfoContext(ctx, "content built",
 		"envelopes", len(envelopes), "events", len(events.list), "validation_errors", len(manifest.Errors),

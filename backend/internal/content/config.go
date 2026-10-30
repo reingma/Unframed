@@ -24,6 +24,7 @@ const (
 	MaxTitleLength       = 120
 	MaxDescriptionLength = 300
 	MaxOrder             = 9999
+	MaxAliases           = 32
 )
 
 // Level is where a configuration appears in the content tree. It decides
@@ -41,8 +42,8 @@ const (
 	LevelLanding
 )
 
-// Config is one validated configuration level. Title, Description, Slug and
-// Order describe their node only; Theme cascades root → directory → article.
+// Config is one validated configuration level. Title, Description, Slug,
+// Order and Aliases describe their node only; Theme cascades root → directory → article.
 // Unknown keys are ignored.
 type Config struct {
 	// Title is empty when unset.
@@ -54,6 +55,9 @@ type Config struct {
 	// Order is in [0, MaxOrder] when Ordered; never set at LevelSite or LevelLanding.
 	Order   int
 	Ordered bool
+	// Aliases are distinct former URL paths of the node; never set at
+	// LevelSite or LevelLanding.
+	Aliases []Alias
 	// Theme is complete at LevelSite and holds overrides at other levels.
 	Theme Theme
 }
@@ -119,6 +123,7 @@ const (
 	RuleSlug       Rule = "slug"
 	RuleRange      Rule = "range"
 	RuleColor      Rule = "color"
+	RuleAlias      Rule = "alias"
 )
 
 // FieldError is one broken rule in a configuration file.
@@ -180,6 +185,7 @@ func ParseConfig(level Level, data []byte) (Config, error) {
 		Slug:        v.slug(nodeLocal),
 	}
 	config.Order, config.Ordered = v.order(nodeLocal)
+	config.Aliases = v.aliases(nodeLocal)
 	config.Theme = v.theme(level == LevelSite)
 	if len(v.errs) > 0 {
 		return Config{}, &ConfigError{Fields: v.errs}
@@ -306,6 +312,50 @@ func (v *validator) order(allowed bool) (int, bool) {
 		return int(order), true
 	}
 	return 0, false
+}
+
+func (v *validator) aliases(allowed bool) []Alias {
+	const key = "aliases"
+	value, ok := v.present(key, allowed)
+	if !ok {
+		return nil
+	}
+	list, isArray := value.([]any)
+	if !isArray {
+		v.fail(key, RuleType, value, "must be an array of strings")
+		return nil
+	}
+	if len(list) > MaxAliases {
+		v.fail(key, RuleRange, value, "must have at most %d entries", MaxAliases)
+		return nil
+	}
+	aliases := make([]Alias, 0, len(list))
+	seen := map[Alias]bool{}
+	valid := true
+	for _, item := range list {
+		text, isString := item.(string)
+		if !isString {
+			v.fail(key, RuleType, item, "must be an array of strings")
+			valid = false
+			continue
+		}
+		alias, err := ParseAlias(text)
+		switch {
+		case err != nil:
+			v.fail(key, RuleAlias, item, "must be an absolute path of lowercase slugs, such as /essays/old-title")
+			valid = false
+		case seen[alias]:
+			v.fail(key, RuleAlias, item, "must not repeat")
+			valid = false
+		default:
+			seen[alias] = true
+			aliases = append(aliases, alias)
+		}
+	}
+	if !valid {
+		return nil
+	}
+	return aliases
 }
 
 func (v *validator) theme(required bool) Theme {

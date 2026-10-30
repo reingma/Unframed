@@ -1,5 +1,6 @@
 +++
 description = "A first example article."
+aliases = ["/essays/hello"]
 +++
 # Hello World
 

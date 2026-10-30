@@ -45,6 +45,7 @@ lines that contain exactly `+++`:
 title = "On Martingales and Stopping"
 order = 2
 +++
+
 # Body
 ```
 
@@ -60,6 +61,7 @@ These keys are recognized; every other key is ignored:
 | `description`      | text of at most 300 characters       | optional | optional           | optional     |
 | `slug`             | lowercase slug, such as `my-section` | rejected | optional           | rejected     |
 | `order`            | integer from 0 to 9999               | rejected | optional           | rejected     |
+| `aliases`          | array of at most 32 distinct paths   | rejected | optional           | rejected     |
 | `theme.accent`     | `#RRGGBB` color                      | required | optional           | optional     |
 | `theme.background` | `#RRGGBB` color                      | required | optional           | optional     |
 | `theme.text`       | `#RRGGBB` color                      | required | optional           | optional     |
@@ -69,7 +71,16 @@ without control characters. Colors accept hexadecimal digits in either case.
 
 `title` replaces the derived display title, `slug` the derived URL slug, and
 `order` sorts the node before unordered siblings. `title`, `description`,
-`slug` and `order` describe their node only and are never inherited.
+`slug`, `order` and `aliases` describe their node only and are never inherited.
+
+`aliases` lists the node's former URL paths, so links survive a rename or a
+move. Each alias is `/` followed by lowercase slugs joined by `/`, such as
+`/essays/old-title`; URLs, schemes, relative paths and trailing slashes are
+rejected. A published article's aliases redirect permanently to it. A
+published directory's aliases also redirect every path below them to the
+same path below the directory, so `/old-section/post` reaches
+`/new-section/post`. Chains of aliases resolve to their final target. A
+draft's aliases are checked but never published.
 
 The `[theme]` colors cascade from the root through each directory to its
 articles: each color a node sets replaces the inherited one. Because the root
@@ -110,6 +121,11 @@ are unaffected. These are per-item errors:
 - Siblings that resolve to the same URL. Every sibling in the collision is
   excluded. A draft and a published article only collide with siblings of the
   same kind.
+- An alias that equals its own node's URL, is claimed by more than one
+  published node, equals a published URL, or redirects back into itself,
+  such as two articles aliasing each other's paths or a directory alias below
+  the directory. Only that alias is dropped; its node stays published. Remove
+  stale aliases that a published path has taken over.
 
 An invalid directory name or directory `.configuration` excludes the whole
 directory. A root `.configuration` that is missing, unreadable or breaks the

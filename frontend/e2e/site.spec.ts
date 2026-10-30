@@ -1,5 +1,5 @@
 import { expect, test } from "./fixtures";
-import { SITE, SITE_WITHOUT_BACKEND } from "./servers";
+import { PREVIEW_TOKEN, SITE, SITE_WITHOUT_BACKEND } from "./servers";
 
 const navLinks = (page: import("@playwright/test").Page) =>
   page.getByRole("navigation", { name: "Site" }).getByRole("link");
@@ -80,6 +80,9 @@ test("lists the root without index.md and navigates the tree in order", async ({
 for (const [name, path] of [
   ["an invalid item", "/notes/bad-config"],
   ["a draft", "/guides/setup"],
+  ["a draft's alias", "/guides/setup-old"],
+  ["a path below an article alias", "/guides/first/more"],
+  ["a looping alias", "/notes/alpha-note/x"],
   ["an unknown path", "/notes/missing"],
   ["a path that is not a slug", "/Notes"],
   ["the preview route without a token", "/preview"],
@@ -96,6 +99,37 @@ for (const [name, path] of [
     );
   });
 }
+
+for (const [name, from, to] of [
+  ["a renamed article", "/guides/first", "/guides/alpha"],
+  ["a renamed directory", "/journal", "/notes"],
+  [
+    "a path below a renamed directory",
+    "/journal/beta-note",
+    "/notes/beta-note",
+  ],
+]) {
+  test(`redirects ${name} permanently`, async ({ page, request }) => {
+    const response = await request.get(`${SITE}${from}`, { maxRedirects: 0 });
+    expect(response.status()).toBe(308);
+    expect(response.headers()["location"]).toBe(to);
+
+    const landed = await page.goto(`${SITE}${from}`);
+    expect(landed?.status()).toBe(200);
+    await expect(page).toHaveURL(`${SITE}${to}`);
+  });
+}
+
+test("reports a redirect loop in diagnostics", async ({ page }) => {
+  await page.goto(`${SITE}/preview/${PREVIEW_TOKEN}/diagnostics`);
+  for (const path of ["Notes/Alpha-Note.md", "Notes/Beta-Note.md"]) {
+    await expect(
+      page.locator(".diagnostics li").filter({ hasText: path }),
+    ).toContainText("redirect loop");
+  }
+  const response = await page.goto(`${SITE}/notes/alpha-note`);
+  expect(response?.status()).toBe(200);
+});
 
 test("shows the error page when the backend is unreachable", async ({
   page,

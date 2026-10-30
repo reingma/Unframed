@@ -26,7 +26,8 @@ and future rendering boundary.
   [content/scan](../../backend/internal/content/scan/scan.go) exports only `Scan`,
   which reads a `Source` into a validated manifest: the public navigation tree,
   an article index including drafts, each node's typed configuration and
-  resolved theme, the separate list of assets and per-item validation errors. The
+  resolved theme, the separate list of assets, the redirect map of published
+  aliases and per-item validation errors. The
   [authoring schema](content-authoring.md) owns the format and
   [ADR 0004](../decisions/0004-content-source-and-authoring-format.md) its rationale.
   Article nodes keep their Markdown body from the scan's single read.
@@ -152,8 +153,8 @@ the bodies are the snapshot's pre-encoded [documents](document-contract.md):
 
 - Article paths are lowercase slug segments. Drafts, invalid items, unknown
   paths, dot or empty segments, trailing slashes, encoded `/` or `\` and other
-  non-slug segments all return the same `404 {"error":"not found"}`. Paths are
-  never cleaned or redirected.
+  non-slug segments all return the same `404 {"error":"not found"}`. Go never
+  cleans or redirects paths; it publishes alias redirects in the manifest.
 - `PREVIEW_TOKEN` gates both preview routes; a wrong token or an unset one
   returns the same public 404. Preview links are shareable, so the token is a
   shareable credential.
@@ -177,11 +178,11 @@ the bodies are the snapshot's pre-encoded [documents](document-contract.md):
 Next.js serves these pages; [ADR 0007](../decisions/0007-nextjs-page-resolution-and-preview-routes.md)
 records why:
 
-| Page                                    | Rendering                                                                                                                                                                    |
-| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/<slug…>`                              | Looks the path up in the manifest. An article or a directory with `hasIndex` renders its envelope; another directory renders a generated listing of its children; else 404. |
-| `/preview/<token>/articles/<slug…>`     | Renders Go's preview envelope, draft included, or a directory listing. Another miss shows Go's validation errors for the path.                                              |
-| `/preview/<token>/diagnostics`          | Renders Go's diagnostics report.                                                                                                                                             |
+| Page                                | Rendering                                                                                                                                                                                                    |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `/<slug…>`                          | Looks the path up in the manifest. An article or a directory with `hasIndex` renders its envelope; another directory renders a generated listing of its children; a manifest redirect answers 308; else 404. |
+| `/preview/<token>/articles/<slug…>` | Renders Go's preview envelope, draft included, or a directory listing. Another miss shows Go's validation errors for the path.                                                                               |
+| `/preview/<token>/diagnostics`      | Renders Go's diagnostics report.                                                                                                                                                                             |
 
 - Every page shows the site title and the manifest navigation in Go's order.
   The page theme is set as CSS custom properties from the envelope's
@@ -193,8 +194,14 @@ records why:
   timeout renders the error page with HTTP 500, never partial data. Each failure
   is logged as JSON with the request ID and the Go path, with the preview token
   redacted.
-- A public path that is not in the manifest, including drafts, invalid items
-  and non-slug segments, is a 404. A preview token that is not 32 to 256
+- A public path that is not in the manifest's navigation but matches one of its
+  `redirects` answers a permanent 308 redirect to the target, keeping the
+  suffix below a directory alias; the deepest matching alias wins. Each hit is
+  logged as JSON with the request ID and the from and to paths. Next.js
+  pages can only send 307 or 308, so 308 stands in for the 301 that was
+  planned; both are permanent and cached by clients.
+- Any other public path that is not in the manifest, including drafts, draft
+  aliases, invalid items and non-slug segments, is a 404 and is never cleaned. A preview token that is not 32 to 256
   characters of `[A-Za-z0-9_-]` is a 404 without a request to Go, and Go's
   public 404 for a wrong token is a 404 too.
 - Each page request makes one correlation ID and sends it as `X-Request-ID` on

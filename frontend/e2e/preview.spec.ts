@@ -63,8 +63,8 @@ test("lists every build diagnostic", async ({ page }) => {
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
     "Diagnostics",
   );
-  await expect(page.getByText(/1 validation errors/)).toBeVisible();
-  await expect(page.locator(".diagnostics li")).toHaveCount(1);
+  await expect(page.getByText(/3 validation errors/)).toBeVisible();
+  await expect(page.locator(".diagnostics li")).toHaveCount(3);
 });
 
 for (const path of ["/articles/guides/setup", "/diagnostics"]) {

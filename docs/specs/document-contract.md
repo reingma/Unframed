@@ -62,13 +62,25 @@ an envelope.
     "theme": { "accent": "#336699", "background": "#ffffff", "text": "#111111" }
   },
   "nav": {
-    "kind": "directory", "urlPath": "/", "title": "Unframed", "description": "A blog",
+    "kind": "directory",
+    "urlPath": "/",
+    "title": "Unframed",
+    "description": "A blog",
     "hasIndex": false,
     "children": [
-      { "kind": "article", "urlPath": "/on-martingales", "title": "On Martingales",
-        "description": "Fair games", "hasIndex": false, "children": [] }
+      {
+        "kind": "article",
+        "urlPath": "/on-martingales",
+        "title": "On Martingales",
+        "description": "Fair games",
+        "hasIndex": false,
+        "children": []
+      }
     ]
-  }
+  },
+  "redirects": [
+    { "from": "/martingales", "to": "/on-martingales", "prefix": false }
+  ]
 }
 ```
 
@@ -77,6 +89,12 @@ an envelope.
   `kind` is `directory` or `article`. A directory with a landing page has
   `hasIndex: true` and that page's envelope at its `urlPath`. Only directories
   have `children`, listed in navigation order; `children` is always an array.
+- `redirects` lists the valid aliases of published nodes, ordered by `from`,
+  with chains resolved so `to` is always published. `from` is an internal path
+  of lowercase slugs, never published and never repeated. A `prefix` redirect,
+  from a directory alias, also sends every path below `from` to the same suffix
+  below `to`; the deepest matching `from` wins. `redirects` was added within
+  version 1, so a manifest without it has no redirects.
 - The manifest never contains drafts, invalid items or validation errors.
 
 ## Build events
@@ -89,9 +107,13 @@ at a time.
 
 ```json
 {
-  "schemaVersion": 1, "id": "Q2X7…-1", "buildId": "Q2X7…",
-  "time": "2026-10-18T03:00:00Z", "kind": "article.published",
-  "path": "Mathematics/On-Martingales.md", "urlPath": "/mathematics/on-martingales"
+  "schemaVersion": 1,
+  "id": "Q2X7…-1",
+  "buildId": "Q2X7…",
+  "time": "2026-10-18T03:00:00Z",
+  "kind": "article.published",
+  "path": "Mathematics/On-Martingales.md",
+  "urlPath": "/mathematics/on-martingales"
 }
 ```
 

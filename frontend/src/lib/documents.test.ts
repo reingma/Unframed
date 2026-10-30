@@ -8,6 +8,7 @@ import {
   envelopeSchema,
   manifestSchema,
   type NavNode,
+  type Redirect,
 } from "./documents";
 
 // Go's golden documents keep the Zod schemas and the Go encoder in step.
@@ -84,7 +85,44 @@ describe("envelope schema", () => {
 });
 
 describe("manifest schema", () => {
-  const manifest = golden("manifest.json") as { nav: NavNode };
+  const manifest = golden("manifest.json") as {
+    nav: NavNode;
+    redirects: Redirect[];
+  };
+  const [redirect] = manifest.redirects;
+
+  it("treats a manifest without redirects as having none", () => {
+    const older: Partial<typeof manifest> = { ...manifest };
+    delete older.redirects;
+    expect(decodeDocument(manifestSchema, older)).toEqual({
+      ok: true,
+      data: { ...older, redirects: [] },
+    });
+  });
+
+  it("drops unknown redirect members", () => {
+    const redirects = [{ ...redirect, status: 302 }];
+    expect(decodeDocument(manifestSchema, { ...manifest, redirects })).toEqual({
+      ok: true,
+      data: { ...manifest, redirects: [redirect] },
+    });
+  });
+
+  it.each([
+    ["an external source", [{ ...redirect, from: "https://evil.example" }]],
+    ["a scheme-relative source", [{ ...redirect, from: "//evil.example" }]],
+    ["a root source", [{ ...redirect, from: "/" }]],
+    ["an uppercase source", [{ ...redirect, from: "/Old" }]],
+    ["a relative target", [{ ...redirect, to: "mathematics" }]],
+    ["a missing prefix flag", [{ from: redirect.from, to: redirect.to }]],
+    ["a repeated source", [redirect, redirect]],
+    ["redirects that are not a list", {}],
+  ])("rejects %s", (_, redirects) => {
+    expect(decodeDocument(manifestSchema, { ...manifest, redirects })).toEqual({
+      ok: false,
+      reason: "invalid-document",
+    });
+  });
 
   function withNav(nav: unknown) {
     return { ...manifest, nav };

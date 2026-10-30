@@ -96,12 +96,23 @@ const (
 	NavArticle   NavKind = "article"
 )
 
-// Manifest is the public site document: the site settings and the published
-// navigation tree. It never contains drafts or validation errors.
+// Manifest is the public site document: the site settings, the published
+// navigation tree and the redirects of published aliases. It never contains
+// drafts or validation errors.
 type Manifest struct {
-	SchemaVersion int     `json:"schemaVersion"`
-	Site          Site    `json:"site"`
-	Nav           NavNode `json:"nav"`
+	SchemaVersion int        `json:"schemaVersion"`
+	Site          Site       `json:"site"`
+	Nav           NavNode    `json:"nav"`
+	Redirects     []Redirect `json:"redirects"`
+}
+
+// Redirect sends From to To. A prefix redirect also sends every path below
+// From to the same suffix below To. From is an internal alias path, so a
+// redirect never leaves the site.
+type Redirect struct {
+	From   string `json:"from"`
+	To     string `json:"to"`
+	Prefix bool   `json:"prefix"`
 }
 
 // Site is the root configuration.
@@ -122,14 +133,19 @@ type NavNode struct {
 	Children    []NavNode `json:"children"`
 }
 
-// NewManifest returns the public manifest of a scanned nav tree, which
-// already excludes drafts and invalid items.
-func NewManifest(root *content.Node) Manifest {
-	return Manifest{
+// NewManifest returns the public manifest of a scanned nav tree and its
+// redirect map, which already exclude drafts and invalid items.
+func NewManifest(root *content.Node, redirects []content.Redirect) Manifest {
+	manifest := Manifest{
 		SchemaVersion: SchemaVersion,
 		Site:          Site{Title: root.Title, Description: root.Description, Theme: newTheme(root.Theme)},
 		Nav:           newNavNode(root),
+		Redirects:     make([]Redirect, 0, len(redirects)),
 	}
+	for _, r := range redirects {
+		manifest.Redirects = append(manifest.Redirects, Redirect{From: r.From, To: r.To, Prefix: r.Prefix})
+	}
+	return manifest
 }
 
 func newNavNode(node *content.Node) NavNode {
@@ -181,8 +197,22 @@ func DecodeManifest(data []byte) (Manifest, error) {
 		errs = append(errs, errors.New(`nav: must be the root directory at "/"`))
 	}
 	errs = append(errs, checkNav("nav", manifest.Nav))
+	from := map[string]bool{}
+	for i, r := range manifest.Redirects {
+		key := fmt.Sprintf("redirects[%d]", i)
+		if _, err := content.ParseAlias(r.From); err != nil {
+			errs = append(errs, fmt.Errorf("%s.from: %w", key, err))
+		} else if from[r.From] {
+			errs = append(errs, fmt.Errorf("%s.from: %s repeats", key, r.From))
+		}
+		from[r.From] = true
+		errs = append(errs, checkURLPath(key+".to", r.To))
+	}
 	if err := invalid(errs); err != nil {
 		return Manifest{}, err
+	}
+	if manifest.Redirects == nil {
+		manifest.Redirects = []Redirect{}
 	}
 	return manifest, nil
 }

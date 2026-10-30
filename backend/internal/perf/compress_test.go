@@ -3,6 +3,7 @@ package perf
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -34,6 +35,17 @@ func TestBuildRecordRejectsMixedEnvironments(t *testing.T) {
 	b.Environment.Machine = "other-machine"
 	if _, err := BuildRecord([]RunArtifact{a, b}, testRev, "ENG-30", time.Now()); err == nil {
 		t.Error("expected mixed-environment rejection")
+	}
+}
+
+func TestBuildRecordRejectsMixedContent(t *testing.T) {
+	a := testArtifact()
+	b := testArtifact()
+	b.WorkloadID = "frontend-root"
+	b.ContentHash = strings.Repeat("c", 40)
+	_, err := BuildRecord([]RunArtifact{a, b}, testRev, "ENG-30", time.Now())
+	if err == nil || !strings.Contains(err.Error(), "measured content") {
+		t.Fatalf("expected mixed-content rejection, got %v", err)
 	}
 }
 
@@ -128,6 +140,9 @@ func TestFrontendFixtureRunProducesRecord(t *testing.T) {
 	record, err := BuildRecord(artifacts, testRev, "ENG-31", time.Now())
 	if err != nil {
 		t.Fatal(err)
+	}
+	if record.Version != SchemaVersion || record.ContentHash != testContent {
+		t.Fatalf("record version %d content %q, want the artifacts' content", record.Version, record.ContentHash)
 	}
 	dir := t.TempDir()
 	if _, _, err := WriteRecord(dir, record); err != nil {

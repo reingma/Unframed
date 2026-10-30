@@ -140,7 +140,7 @@ func ParseRegistry(data []byte) (Registry, error) {
 	if err := json.Unmarshal(data, &r, json.RejectUnknownMembers(true)); err != nil {
 		return Registry{}, err
 	}
-	if r.Version != SchemaVersion {
+	if r.Version != RegistryVersion {
 		return Registry{}, fmt.Errorf("unsupported registry version %d", r.Version)
 	}
 	if len(r.Workloads) == 0 {

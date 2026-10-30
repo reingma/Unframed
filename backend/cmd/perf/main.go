@@ -32,7 +32,7 @@ func main() {
 
 func run(ctx context.Context, args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("usage: perf <run|compress|compare|report|validate|gate|content> [flags]")
+		return fmt.Errorf("usage: perf <run|compress|compare|report|validate|gate|content|content-hash|locate> [flags]")
 	}
 	switch args[0] {
 	case "run":
@@ -49,6 +49,10 @@ func run(ctx context.Context, args []string) error {
 		return cmdGate(ctx, args[1:])
 	case "content":
 		return cmdContent(ctx, args[1:])
+	case "content-hash":
+		return cmdContentHash(ctx, args[1:])
+	case "locate":
+		return cmdLocate(ctx, args[1:])
 	default:
 		return fmt.Errorf("unknown subcommand %q", args[0])
 	}
@@ -79,10 +83,15 @@ func cmdRun(ctx context.Context, args []string) error {
 	runDirFlag := fs.String("run", "", "run directory to write (default: new UTC timestamp under --runs)")
 	machine := fs.String("machine", "", "opaque machine label (or PERF_MACHINE)")
 	only := fs.String("only", "", "run a single workload id")
+	historyDir := fs.String("history", "perf/history", "committed record directory, excluded from the content hash")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	label, err := machineLabel(*machine)
+	if err != nil {
+		return err
+	}
+	content, err := measuredContent(ctx, *historyDir)
 	if err != nil {
 		return err
 	}
@@ -109,7 +118,7 @@ func cmdRun(ctx context.Context, args []string) error {
 		}
 		ran = true
 		slog.Info("running workload", "id", w.ID, "target", w.Target)
-		artifact, err := perf.RunHTTPWorkload(ctx, w, env)
+		artifact, err := perf.RunHTTPWorkload(ctx, w, env, content)
 		if err != nil {
 			return err
 		}
@@ -161,13 +170,38 @@ func cmdContent(_ context.Context, args []string) error {
 	return nil
 }
 
-func cmdCompress(_ context.Context, args []string) error {
+// measuredContent refuses a dirty worktree and returns the content hash of
+// HEAD, which is then exactly the code being measured.
+func measuredContent(ctx context.Context, historyDir string) (string, error) {
+	if err := perf.CheckClean(ctx, ".", historyDir); err != nil {
+		return "", err
+	}
+	return perf.ContentHash(ctx, ".", "HEAD", historyDir)
+}
+
+// cmdContentHash prints the content hash of a clean worktree's HEAD, so
+// `make perf-run` hands the frontend runner the hash the Go runner records.
+func cmdContentHash(ctx context.Context, args []string) error {
+	fs := flag.NewFlagSet("content-hash", flag.ContinueOnError)
+	historyDir := fs.String("history", "perf/history", "committed record directory, excluded from the hash")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	content, err := measuredContent(ctx, *historyDir)
+	if err != nil {
+		return err
+	}
+	fmt.Println(content)
+	return nil
+}
+
+func cmdCompress(ctx context.Context, args []string) error {
 	fs := flag.NewFlagSet("compress", flag.ContinueOnError)
 	runsDir := fs.String("runs", "perf/runs", "raw artifact root")
 	runDir := fs.String("run", "", "run directory to compress (default: latest under --runs)")
 	historyDir := fs.String("history", "perf/history", "committed record directory")
 	tag := fs.String("tag", "", "changelog or issue tag for the record (required)")
-	revision := fs.String("revision", "", "40-digit measured git SHA (default: git rev-parse HEAD)")
+	revision := fs.String("revision", "", "measured commit; its content must match the run's (default: HEAD)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -182,22 +216,32 @@ func cmdCompress(_ context.Context, args []string) error {
 		}
 		dir = latest
 	}
-	rev := *revision
-	if rev == "" {
-		out, err := exec.Command("git", "rev-parse", "HEAD").Output()
-		if err != nil {
-			return fmt.Errorf("resolve revision: %w (or pass --revision)", err)
-		}
-		rev = strings.TrimSpace(string(out))
-	}
 	artifacts, err := perf.LoadRunDir(dir)
 	if err != nil {
 		return err
 	}
 	slog.Info("compressing run", "dir", dir, "artifacts", len(artifacts))
+	// The run captured the content; the revision only names a commit with
+	// that content, so a checkout that moved since the run is refused.
+	ref := *revision
+	if ref == "" {
+		ref = "HEAD"
+	}
+	rev, err := gitCommit(ctx, ref)
+	if err != nil {
+		return err
+	}
 	record, err := perf.BuildRecord(artifacts, rev, *tag, time.Now())
 	if err != nil {
 		return err
+	}
+	revContent, err := perf.ContentHash(ctx, ".", rev, *historyDir)
+	if err != nil {
+		return err
+	}
+	if revContent != record.ContentHash {
+		return fmt.Errorf("the run measured content %s but %s has content %s; check out the measured commit or pass --revision",
+			record.ContentHash, ref, revContent)
 	}
 	written, path, err := perf.WriteRecord(*historyDir, record)
 	if err != nil {
@@ -242,11 +286,69 @@ func selectRecords(historyDir, aPath, bPath string) (string, perf.HistoryRecord,
 	return perf.RecordFileName(a), a, perf.RecordFileName(b), b, nil
 }
 
-func cmdCompare(_ context.Context, args []string) error {
+// gitCommit resolves ref to a full commit SHA in the working repository.
+func gitCommit(ctx context.Context, ref string) (string, error) {
+	out, err := exec.CommandContext(ctx, "git", "rev-parse", "--verify", "--quiet", ref+"^{commit}").Output()
+	if err != nil {
+		return "", fmt.Errorf("%q does not resolve to a commit", ref)
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+// compareLocated compares two records and adds the commits on ref whose
+// content they measured. Lookup failures only cost the annotation.
+func compareLocated(ctx context.Context, ref, historyDir, nameA string, a perf.HistoryRecord, nameB string, b perf.HistoryRecord) perf.Comparison {
+	cmp := perf.CompareRecords(nameA, a, nameB, b)
+	found, err := perf.Locate(ctx, ".", ref, historyDir, a.ContentHash, b.ContentHash)
+	if err != nil {
+		slog.Warn("cannot locate measured commits", "ref", ref, "error", err)
+		return cmp
+	}
+	cmp.LocatedA, cmp.LocatedB = found[a.ContentHash], found[b.ContentHash]
+	return cmp
+}
+
+// cmdLocate prints the first commit on ref's first-parent history whose
+// content matches a record's content hash.
+func cmdLocate(ctx context.Context, args []string) error {
+	fs := flag.NewFlagSet("locate", flag.ContinueOnError)
+	historyDir := fs.String("history", "perf/history", "committed record directory, excluded from the hash")
+	ref := fs.String("ref", "main", "branch whose first-parent history is searched")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if fs.NArg() != 1 {
+		return fmt.Errorf("usage: perf locate [--ref main] <record file>")
+	}
+	data, err := os.ReadFile(fs.Arg(0))
+	if err != nil {
+		return err
+	}
+	record, err := perf.ParseHistoryRecord(data)
+	if err != nil {
+		return fmt.Errorf("%s: %w", fs.Arg(0), err)
+	}
+	if record.ContentHash == "" {
+		return fmt.Errorf("%s is a version %d record without content_hash; only its revision %s is known", fs.Arg(0), record.Version, record.Revision)
+	}
+	found, err := perf.Locate(ctx, ".", *ref, *historyDir, record.ContentHash)
+	if err != nil {
+		return err
+	}
+	commit, ok := found[record.ContentHash]
+	if !ok {
+		return fmt.Errorf("no commit on %s's first-parent history has content %s", *ref, record.ContentHash)
+	}
+	fmt.Println(commit)
+	return nil
+}
+
+func cmdCompare(ctx context.Context, args []string) error {
 	fs := flag.NewFlagSet("compare", flag.ContinueOnError)
 	historyDir := fs.String("history", "perf/history", "committed record directory")
 	aPath := fs.String("a", "", "baseline record file (default: second-latest)")
 	bPath := fs.String("b", "", "current record file (default: latest)")
+	ref := fs.String("ref", "main", "branch searched for the commits the records measured")
 	asJSON := fs.Bool("json", false, "emit the comparison as JSON")
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -255,7 +357,7 @@ func cmdCompare(_ context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	cmp := perf.CompareRecords(nameA, a, nameB, b)
+	cmp := compareLocated(ctx, *ref, *historyDir, nameA, a, nameB, b)
 	if *asJSON {
 		out, err := json.Marshal(cmp)
 		if err != nil {
@@ -267,11 +369,12 @@ func cmdCompare(_ context.Context, args []string) error {
 	return cmp.WriteText(os.Stdout)
 }
 
-func cmdReport(_ context.Context, args []string) error {
+func cmdReport(ctx context.Context, args []string) error {
 	fs := flag.NewFlagSet("report", flag.ContinueOnError)
 	historyDir := fs.String("history", "perf/history", "committed record directory")
 	aPath := fs.String("a", "", "baseline record file (default: second-latest)")
 	bPath := fs.String("b", "", "current record file (default: latest)")
+	ref := fs.String("ref", "main", "branch searched for the commits the records measured")
 	out := fs.String("out", "", "output HTML file (required; keep it outside committed paths)")
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -290,7 +393,7 @@ func cmdReport(_ context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	if err := perf.CompareRecords(nameA, a, nameB, b).WriteHTML(f); err != nil {
+	if err := compareLocated(ctx, *ref, *historyDir, nameA, a, nameB, b).WriteHTML(f); err != nil {
 		f.Close()
 		return err
 	}

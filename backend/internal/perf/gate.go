@@ -46,12 +46,14 @@ type fileChange struct {
 //   - The history at head must satisfy the LoadHistory rules: parseable
 //     records, file name matching the embedded sequence and revision, no
 //     duplicate sequences.
+//   - Every added record must carry a content hash (schema version 3).
 //   - The newest record at head must be bound to what is being merged: its
-//     revision must resolve to a commit whose entire content outside
-//     historyDir is identical to head's — only record appends may come after
-//     the measured commit. A record cannot name the commit that contains it,
-//     so this content equality is the strict form of "the record measures
-//     the merge"; any change pushed after measuring fails the gate.
+//     content hash must equal ContentHash(head), so head's entire content
+//     outside historyDir is what was measured and only record appends came
+//     after it. A record cannot name the commit that contains it, so this
+//     content equality is the strict form of "the record measures the
+//     merge"; any change pushed after measuring fails the gate. The record's
+//     revision is not required to resolve: squash and rebase merges drop it.
 //
 // Records whose machine label is not CanonicalMachine produce warnings, not
 // failures. A non-nil error means the gate itself could not run (unresolvable
@@ -104,46 +106,75 @@ func CheckGate(ctx context.Context, repoDir, historyDir, base, head string) (Gat
 	newest := records[len(records)-1]
 	res.Newest = RecordFileName(newest)
 
-	measuredSHA, err := resolveCommit(ctx, repoDir, newest.Revision)
-	if err != nil {
-		res.Failures = append(res.Failures, fmt.Sprintf(
-			"%s has revision %s which does not resolve to a commit; the record cannot be verified against the merged content",
-			res.Newest, newest.Revision))
-	} else {
-		since, err := diffNameStatus(ctx, repoDir, measuredSHA, headSHA)
-		if err != nil {
-			return GateResult{}, err
-		}
-		var drift []string
-		for _, c := range since {
-			if c.Status != "A" || !strings.HasPrefix(c.Path, historyDir+"/") {
-				drift = append(drift, c.Status+" "+c.Path)
-			}
-		}
-		if len(drift) > 0 {
-			const max = 5
-			detail := strings.Join(drift[:min(len(drift), max)], ", ")
-			if len(drift) > max {
-				detail += fmt.Sprintf(", and %d more", len(drift)-max)
-			}
-			res.Failures = append(res.Failures, fmt.Sprintf(
-				"%s measures %s but the merge head has drifted: %s — re-run the measurement on the designated machine and append a fresh record",
-				res.Newest, newest.Revision[:8], detail))
-		}
-	}
-
 	byName := map[string]HistoryRecord{}
 	for _, r := range records {
 		byName[RecordFileName(r)] = r
 	}
 	for _, name := range res.Added {
-		if r, ok := byName[name]; ok && r.Environment.Machine != CanonicalMachine {
+		r, ok := byName[name]
+		if !ok {
+			continue
+		}
+		if r.ContentHash == "" {
+			res.Failures = append(res.Failures, fmt.Sprintf(
+				"%s is a version %d record without content_hash; new records must be version %d — re-run the measurement with the current perf tool",
+				name, r.Version, SchemaVersion))
+		}
+		if r.Environment.Machine != CanonicalMachine {
 			res.Warnings = append(res.Warnings, fmt.Sprintf(
 				"%s was measured on machine %q, not the canonical %q; the record is accepted but is a different environment factor",
 				name, r.Environment.Machine, CanonicalMachine))
 		}
 	}
+
+	// A legacy newest record cannot be bound by content; it is either an
+	// added record (failed above) or an old one (no record added, failed above).
+	if newest.ContentHash == "" {
+		return res, nil
+	}
+	headContent, err := ContentHash(ctx, repoDir, headSHA, historyDir)
+	if err != nil {
+		return GateResult{}, err
+	}
+	if newest.ContentHash != headContent {
+		detail, err := driftSince(ctx, repoDir, newest.Revision, headSHA, historyDir)
+		if err != nil {
+			return GateResult{}, err
+		}
+		res.Failures = append(res.Failures, fmt.Sprintf(
+			"%s measured content %s but the merge head's content outside %s is %s%s — re-run the measurement on the designated machine and append a fresh record",
+			res.Newest, newest.ContentHash, historyDir, headContent, detail))
+	}
 	return res, nil
+}
+
+// driftSince describes what changed outside historyDir between the measured
+// revision and head, when the revision still resolves; it is diagnostics
+// only, since the content hash decides the gate.
+func driftSince(ctx context.Context, repoDir, revision, headSHA, historyDir string) (string, error) {
+	measuredSHA, err := resolveCommit(ctx, repoDir, revision)
+	if err != nil {
+		return "", nil
+	}
+	since, err := diffNameStatus(ctx, repoDir, measuredSHA, headSHA)
+	if err != nil {
+		return "", err
+	}
+	var drift []string
+	for _, c := range since {
+		if c.Status != "A" || !strings.HasPrefix(c.Path, historyDir+"/") {
+			drift = append(drift, c.Status+" "+c.Path)
+		}
+	}
+	if len(drift) == 0 {
+		return "", nil
+	}
+	const max = 5
+	detail := strings.Join(drift[:min(len(drift), max)], ", ")
+	if len(drift) > max {
+		detail += fmt.Sprintf(", and %d more", len(drift)-max)
+	}
+	return fmt.Sprintf("; changed since %s: %s", revision[:8], detail), nil
 }
 
 func changeVerb(status string) string {

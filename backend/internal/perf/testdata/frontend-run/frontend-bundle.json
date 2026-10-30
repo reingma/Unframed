@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "workload_id": "frontend-bundle",
   "kind": "build",
   "started_at": "2026-10-17T05:54:32.883Z",
@@ -13,6 +13,7 @@
   "toolchain": {
     "node": "v26.11.1"
   },
+  "content_hash": "2a66ce5990e1d520265d13ed0b712dacc43cb7b8",
   "samples": [
     {
       "metrics": {

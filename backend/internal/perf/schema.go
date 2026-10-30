@@ -16,10 +16,17 @@ import (
 	"time"
 )
 
-// SchemaVersion is the current version of the registry, run-artifact and
+// SchemaVersion is the current version of the run-artifact and
 // history-record JSON formats. Bump it only for incompatible shape changes.
-// Version 1 history records remain readable; see ParseHistoryRecord.
-const SchemaVersion = 2
+// Version 3 added content_hash. Version 1 and 2 history records remain
+// readable; see ParseHistoryRecord.
+const SchemaVersion = 3
+
+// legacyRecordVersion is the last record version without content_hash.
+const legacyRecordVersion = 2
+
+// RegistryVersion is the current version of the workload registry format.
+const RegistryVersion = 2
 
 // Workload kinds in the registry.
 const (
@@ -110,6 +117,7 @@ type RunArtifact struct {
 	FinishedAt  time.Time   `json:"finished_at"`
 	Environment Environment `json:"environment"`
 	Toolchain   Toolchain   `json:"toolchain"`
+	ContentHash string      `json:"content_hash"`
 	Samples     []Sample    `json:"samples"`
 }
 
@@ -145,10 +153,15 @@ type WorkloadStats struct {
 
 // HistoryRecord is the committed, compressed summary of one measurement run.
 // One record is committed per merge to main under perf/history/.
+// ContentHash (see ContentHash) binds the record to the measured content;
+// Revision is the measured commit, informational only because a squash or
+// rebase merge can drop it from main. Version 1 and 2 records have no
+// ContentHash.
 type HistoryRecord struct {
 	Version     int             `json:"version"`
 	Sequence    int             `json:"sequence"`
 	Revision    string          `json:"revision"`
+	ContentHash string          `json:"content_hash,omitzero"`
 	Tag         string          `json:"tag"`
 	RecordedAt  time.Time       `json:"recorded_at"`
 	Environment Environment     `json:"environment"`
@@ -175,6 +188,8 @@ func (a *RunArtifact) validate() error {
 	switch {
 	case a.Version != SchemaVersion:
 		return fmt.Errorf("unsupported artifact version %d", a.Version)
+	case !contentHashPattern.MatchString(a.ContentHash):
+		return fmt.Errorf("content_hash %q is not a git object ID", a.ContentHash)
 	case !workloadIDPattern.MatchString(a.WorkloadID):
 		return fmt.Errorf("workload_id %q must match %s", a.WorkloadID, workloadIDPattern)
 	case !validKind(a.Kind):
@@ -265,8 +280,12 @@ func (s MetricStats) validate() error {
 
 func (r *HistoryRecord) validate() error {
 	switch {
-	case r.Version != SchemaVersion:
+	case r.Version != SchemaVersion && r.Version != legacyRecordVersion:
 		return fmt.Errorf("unsupported record version %d", r.Version)
+	case r.Version == SchemaVersion && !contentHashPattern.MatchString(r.ContentHash):
+		return fmt.Errorf("content_hash %q is not a git object ID", r.ContentHash)
+	case r.Version == legacyRecordVersion && r.ContentHash != "":
+		return fmt.Errorf("version %d records have no content_hash", r.Version)
 	case r.Sequence <= 0:
 		return fmt.Errorf("sequence must be positive, got %d", r.Sequence)
 	case !revisionPattern.MatchString(r.Revision):
@@ -332,11 +351,11 @@ type historyRecordV1 struct {
 	} `json:"workloads"`
 }
 
-// upgrade converts a version 1 record to the current shape. Its toolchain
+// upgrade converts a version 1 record to the version 2 shape. Its toolchain
 // string was the Go toolchain, so it becomes each workload's "go" component.
 func (v historyRecordV1) upgrade() HistoryRecord {
 	r := HistoryRecord{
-		Version:     SchemaVersion,
+		Version:     legacyRecordVersion,
 		Sequence:    v.Sequence,
 		Revision:    v.Revision,
 		Tag:         v.Tag,
@@ -357,8 +376,9 @@ func (v historyRecordV1) upgrade() HistoryRecord {
 }
 
 // ParseHistoryRecord decodes and validates a committed history record.
-// Version 1 records are upgraded in memory to the current shape, so
-// committed history is never rewritten.
+// Version 1 records are upgraded in memory to the version 2 shape, and
+// version 2 records keep their version and empty ContentHash, so committed
+// history is never rewritten.
 func ParseHistoryRecord(data []byte) (HistoryRecord, error) {
 	var header struct {
 		Version int `json:"version"`

@@ -1,4 +1,4 @@
-.PHONY: setup dev-backend dev-frontend fmt check check-backend check-frontend check-skills check-perf test test-backend test-frontend test-skills build build-backend build-frontend test-e2e perf-build perf-run perf-run-frontend perf-record perf-compare perf-report perf-gate perf-content
+.PHONY: setup dev-backend dev-frontend fmt check check-backend check-frontend check-skills check-perf test test-backend test-frontend test-skills build build-backend build-frontend test-e2e perf-build perf-run perf-run-frontend perf-record perf-compare perf-report perf-gate perf-content perf-locate
 
 GO_SKILL_FILES := $(wildcard .agents/skills/go-engineering/assets/*.go)
 
@@ -65,12 +65,14 @@ PERF_RUN := perf/runs/$(shell date -u +%Y%m%dT%H%M%S)
 endif
 
 perf-run: perf-build build
-	backend/bin/perf run --run $(PERF_RUN)
-	cd frontend && PERF_RUN_DIR=$(PERF_RUN) npm run perf
+	content=$$(backend/bin/perf content-hash) && \
+	backend/bin/perf run --run $(PERF_RUN) && \
+	cd frontend && PERF_RUN_DIR=$(PERF_RUN) PERF_CONTENT_HASH=$$content npm run perf
 
 perf-run-frontend: perf-build build
 	backend/bin/perf validate
-	cd frontend && PERF_RUN_DIR=$(PERF_RUN) npm run perf
+	content=$$(backend/bin/perf content-hash) && \
+	cd frontend && PERF_RUN_DIR=$(PERF_RUN) PERF_CONTENT_HASH=$$content npm run perf
 
 perf-content: perf-build
 	rm -rf perf/content
@@ -78,6 +80,9 @@ perf-content: perf-build
 
 perf-record: perf-build
 	backend/bin/perf compress --tag $(TAG)
+
+perf-locate: perf-build
+	backend/bin/perf locate $(RECORD)
 
 perf-compare: perf-build
 	backend/bin/perf compare

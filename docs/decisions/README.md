@@ -12,6 +12,7 @@ rather than silently rewriting its history.
 - [0005: document envelope, Markdown rendering and event fanout](0005-document-envelope-rendering-and-fanout.md)
 - [0006: snapshot serving and rebuilds](0006-snapshot-serving-and-rebuilds.md)
 - [0007: Next.js page resolution and preview routes](0007-nextjs-page-resolution-and-preview-routes.md)
+- [0008: content-bound history records](0008-content-bound-history-records.md)
 
 ## Engineering resources
 

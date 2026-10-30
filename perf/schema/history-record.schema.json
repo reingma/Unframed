@@ -2,9 +2,65 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://unframed.local/perf/schema/history-record.schema.json",
   "title": "Compressed history record",
-  "description": "Committed per-merge summary under perf/history/. File name is NNNN-<sha8>.json matching sequence and revision. Version 2 is current; version 1 records (one record-level Go toolchain string) remain valid and are read as version 2 with each workload's toolchain {\"go\": <toolchain>}.",
-  "oneOf": [{"$ref": "#/$defs/recordV2"}, {"$ref": "#/$defs/recordV1"}],
+  "description": "Committed per-merge summary under perf/history/. File name is NNNN-<sha8>.json matching sequence and revision. Version 3 is current and binds the record to the measured content through content_hash; revision is informational. Version 2 records (no content_hash) remain valid, and version 1 records (one record-level Go toolchain string) are read as version 2 with each workload's toolchain {\"go\": <toolchain>}.",
+  "oneOf": [{"$ref": "#/$defs/recordV3"}, {"$ref": "#/$defs/recordV2"}, {"$ref": "#/$defs/recordV1"}],
   "$defs": {
+    "recordV3": {
+      "type": "object",
+      "required": [
+        "version",
+        "sequence",
+        "revision",
+        "content_hash",
+        "tag",
+        "recorded_at",
+        "environment",
+        "workloads"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "version": {"const": 3},
+        "sequence": {"type": "integer", "exclusiveMinimum": 0},
+        "revision": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$",
+          "description": "Measured commit; informational, since squash and rebase merges drop it from main."
+        },
+        "content_hash": {
+          "type": "string",
+          "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})$",
+          "description": "Git tree ID of the measured content outside perf/history/; the merge gate binds the record by it."
+        },
+        "tag": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Changelog or issue tag, e.g. ENG-30."
+        },
+        "recorded_at": {"type": "string", "format": "date-time"},
+        "environment": {"$ref": "#/$defs/environment"},
+        "workloads": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["id", "kind", "toolchain", "samples", "errors", "metrics"],
+            "additionalProperties": false,
+            "properties": {
+              "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+              "kind": {"enum": ["http", "browser", "build"]},
+              "toolchain": {"$ref": "#/$defs/toolchain"},
+              "samples": {"type": "integer", "exclusiveMinimum": 0},
+              "errors": {"type": "integer", "minimum": 0},
+              "metrics": {
+                "type": "object",
+                "minProperties": 1,
+                "additionalProperties": {"$ref": "#/$defs/metricStats"}
+              }
+            }
+          }
+        }
+      }
+    },
     "recordV2": {
       "type": "object",
       "required": [

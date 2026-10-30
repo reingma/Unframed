@@ -15,11 +15,18 @@ import (
 
 func gitRun(t *testing.T, dir string, args ...string) string {
 	t.Helper()
+	return gitRunEnv(t, dir, nil, args...)
+}
+
+// gitRunEnv is gitRun with extra environment, e.g. a committer date.
+func gitRunEnv(t *testing.T, dir string, env []string, args ...string) string {
+	t.Helper()
 	cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)
 	cmd.Env = append(os.Environ(),
 		"GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL=/dev/null",
 		"GIT_AUTHOR_NAME=test", "GIT_AUTHOR_EMAIL=test@test",
 		"GIT_COMMITTER_NAME=test", "GIT_COMMITTER_EMAIL=test@test")
+	cmd.Env = append(cmd.Env, env...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("git %s: %v\n%s", strings.Join(args, " "), err, out)
@@ -58,10 +65,23 @@ func commitRecord(t *testing.T, dir string, r HistoryRecord) string {
 	}, "record "+RecordFileName(r))
 }
 
-func gateRecord(seq int, rev, tag, machine string) HistoryRecord {
-	r := testRecord(seq, rev, tag)
+// gateRecord is a record measuring commit measured in dir, as perf compress
+// writes it: the revision plus that commit's content hash.
+func gateRecord(t *testing.T, dir string, seq int, measured, tag, machine string) HistoryRecord {
+	t.Helper()
+	r := testRecord(seq, measured, tag)
 	r.Environment.Machine = machine
+	r.ContentHash = contentHashAt(t, dir, measured)
 	return r
+}
+
+func contentHashAt(t *testing.T, dir, rev string) string {
+	t.Helper()
+	h, err := ContentHash(context.Background(), dir, rev, "perf/history")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return h
 }
 
 // gateFixture returns a repo whose base commit holds one canonical record
@@ -69,9 +89,9 @@ func gateRecord(seq int, rev, tag, machine string) HistoryRecord {
 func gateFixture(t *testing.T) (dir, base string) {
 	t.Helper()
 	dir = t.TempDir()
-	gitRun(t, dir, "init", "-q")
+	gitRun(t, dir, "init", "-q", "-b", "main")
 	measured := commitFiles(t, dir, map[string]string{"app.txt": "v1"}, "seed")
-	base = commitRecord(t, dir, gateRecord(1, measured, "BASE", CanonicalMachine))
+	base = commitRecord(t, dir, gateRecord(t, dir, 1, measured, "BASE", CanonicalMachine))
 	return dir, base
 }
 
@@ -82,7 +102,7 @@ func gateFailures(res GateResult) string {
 func TestGateCanonicalRecordPass(t *testing.T) {
 	dir, base := gateFixture(t)
 	measured := commitFiles(t, dir, map[string]string{"app.txt": "v2"}, "feature")
-	head := commitRecord(t, dir, gateRecord(2, measured, "PR", CanonicalMachine))
+	head := commitRecord(t, dir, gateRecord(t, dir, 2, measured, "PR", CanonicalMachine))
 
 	res, err := CheckGate(context.Background(), dir, "perf/history", base, head)
 	if err != nil {
@@ -118,7 +138,7 @@ func TestGateFailsWithoutAddedRecord(t *testing.T) {
 func TestGateFailsOnStaleRevision(t *testing.T) {
 	dir, base := gateFixture(t)
 	measured := commitFiles(t, dir, map[string]string{"app.txt": "v2"}, "feature")
-	commitRecord(t, dir, gateRecord(2, measured, "PR", CanonicalMachine))
+	commitRecord(t, dir, gateRecord(t, dir, 2, measured, "PR", CanonicalMachine))
 	// A push after measuring — even a tiny one — invalidates the record.
 	head := commitFiles(t, dir, map[string]string{"app.txt": "v3"}, "review fix")
 
@@ -129,7 +149,8 @@ func TestGateFailsOnStaleRevision(t *testing.T) {
 	if res.OK() {
 		t.Fatal("expected failure for a record whose revision is not the head content")
 	}
-	if !strings.Contains(gateFailures(res), "0002-") || !strings.Contains(gateFailures(res), "app.txt") {
+	if !strings.Contains(gateFailures(res), "0002-") || !strings.Contains(gateFailures(res), "app.txt") ||
+		!strings.Contains(gateFailures(res), contentHashAt(t, dir, head)) {
 		t.Fatalf("expected a stale-revision failure naming the record and drift, got: %s", gateFailures(res))
 	}
 }
@@ -161,7 +182,7 @@ func TestGateFailsOnModifiedOrDeletedBaseRecord(t *testing.T) {
 				gitRun(t, dir, "add", "-A")
 				gitRun(t, dir, "commit", "-qm", "tamper record")
 			}
-			head := commitRecord(t, dir, gateRecord(2, measured, "PR", CanonicalMachine))
+			head := commitRecord(t, dir, gateRecord(t, dir, 2, measured, "PR", CanonicalMachine))
 
 			res, err := CheckGate(context.Background(), dir, "perf/history", base, head)
 			if err != nil {
@@ -178,7 +199,8 @@ func TestGateFailsOnBrokenHistoryAtHead(t *testing.T) {
 	dir, base := gateFixture(t)
 	// File name and embedded sequence/revision must agree; here the record's
 	// revision does not match the file's <sha8> part.
-	r := gateRecord(2, strings.Repeat("1", 40), "PR", CanonicalMachine)
+	r := gateRecord(t, dir, 2, base, "PR", CanonicalMachine)
+	r.Revision = strings.Repeat("1", 40)
 	data, err := MarshalHistoryRecord(r)
 	if err != nil {
 		t.Fatal(err)
@@ -201,8 +223,9 @@ func TestGateMultiRecordAppend(t *testing.T) {
 	// Backfill of an old merge plus this change's own record, committed
 	// together: the gate permits multiple appended records.
 	measured := commitFiles(t, dir, map[string]string{"app.txt": "v2"}, "feature")
-	backfill := gateRecord(2, strings.Repeat("a", 40), "OLD", CanonicalMachine)
-	own := gateRecord(3, measured, "PR", CanonicalMachine)
+	backfill := gateRecord(t, dir, 2, base, "OLD", CanonicalMachine)
+	backfill.Revision = strings.Repeat("a", 40)
+	own := gateRecord(t, dir, 3, measured, "PR", CanonicalMachine)
 	b0, err := MarshalHistoryRecord(backfill)
 	if err != nil {
 		t.Fatal(err)
@@ -231,7 +254,7 @@ func TestGateMultiRecordAppend(t *testing.T) {
 func TestGateNonCanonicalMachineWarns(t *testing.T) {
 	dir, base := gateFixture(t)
 	measured := commitFiles(t, dir, map[string]string{"app.txt": "v2"}, "feature")
-	head := commitRecord(t, dir, gateRecord(2, measured, "PR", "cloud-agent"))
+	head := commitRecord(t, dir, gateRecord(t, dir, 2, measured, "PR", "cloud-agent"))
 
 	res, err := CheckGate(context.Background(), dir, "perf/history", base, head)
 	if err != nil {
@@ -245,17 +268,98 @@ func TestGateNonCanonicalMachineWarns(t *testing.T) {
 	}
 }
 
-func TestGateFailsOnUnresolvableMeasuredRevision(t *testing.T) {
+func TestGatePassesWhenMeasuredRevisionIsGone(t *testing.T) {
 	dir, base := gateFixture(t)
-	commitFiles(t, dir, map[string]string{"app.txt": "v2"}, "feature")
-	// A revision that is not a commit in this repository cannot be verified.
-	head := commitRecord(t, dir, gateRecord(2, strings.Repeat("b", 40), "PR", CanonicalMachine))
+	measured := commitFiles(t, dir, map[string]string{"app.txt": "v2"}, "feature")
+	// The revision names a commit that does not exist here, as after a
+	// squash merge; the content hash still binds the record to head.
+	r := gateRecord(t, dir, 2, measured, "PR", CanonicalMachine)
+	r.Revision = strings.Repeat("b", 40)
+	head := commitRecord(t, dir, r)
 
 	res, err := CheckGate(context.Background(), dir, "perf/history", base, head)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if res.OK() || !strings.Contains(gateFailures(res), "resolve") {
-		t.Fatalf("expected an unverifiable-revision failure, got: %s", gateFailures(res))
+	if !res.OK() {
+		t.Fatalf("expected pass, failures: %s", gateFailures(res))
+	}
+}
+
+func TestGateFailsOnRecordWithoutContentHash(t *testing.T) {
+	dir, base := gateFixture(t)
+	measured := commitFiles(t, dir, map[string]string{"app.txt": "v2"}, "feature")
+	r := gateRecord(t, dir, 2, measured, "PR", CanonicalMachine)
+	r.Version, r.ContentHash = legacyRecordVersion, ""
+	head := commitRecord(t, dir, r)
+
+	res, err := CheckGate(context.Background(), dir, "perf/history", base, head)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.OK() || !strings.Contains(gateFailures(res), "without content_hash") {
+		t.Fatalf("expected a missing-content-hash failure, got: %s", gateFailures(res))
+	}
+}
+
+// TestGateAcrossMergeStrategies merges a measured PR into main by each
+// GitHub strategy, then checks the merged state, lineage lookup and the next
+// PR's gate. Squash and rebase merges rewrite the measured commit.
+func TestGateAcrossMergeStrategies(t *testing.T) {
+	ctx := context.Background()
+	for _, strategy := range []string{"squash", "merge", "rebase"} {
+		t.Run(strategy, func(t *testing.T) {
+			dir, base := gateFixture(t)
+			gitRun(t, dir, "checkout", "-qb", "feature")
+			commitFiles(t, dir, map[string]string{"app.txt": "v2"}, "feature part 1")
+			measured := commitFiles(t, dir, map[string]string{"lib/util.txt": "u1"}, "feature part 2")
+			record := gateRecord(t, dir, 2, measured, "PR", CanonicalMachine)
+			prHead := commitRecord(t, dir, record)
+			if res, err := CheckGate(ctx, dir, "perf/history", base, prHead); err != nil || !res.OK() {
+				t.Fatalf("PR gate: %v %s", err, gateFailures(res))
+			}
+
+			gitRun(t, dir, "checkout", "-q", "main")
+			switch strategy {
+			case "squash":
+				gitRun(t, dir, "merge", "-q", "--squash", "feature")
+				gitRun(t, dir, "commit", "-qm", "squash")
+			case "merge":
+				gitRun(t, dir, "merge", "-q", "--no-ff", "-m", "merge", "feature")
+			case "rebase":
+				gitRun(t, dir, "checkout", "-qb", "rebased", "feature")
+				// A later committer date makes the rewrite visible even
+				// within one second, as GitHub's rebase merge rewrites.
+				gitRunEnv(t, dir, []string{"GIT_COMMITTER_DATE=2030-01-01T00:00:00Z"},
+					"rebase", "-q", "--force-rebase", "main")
+				gitRun(t, dir, "checkout", "-q", "main")
+				gitRun(t, dir, "merge", "-q", "--ff-only", "rebased")
+			}
+			merged := gitRun(t, dir, "rev-parse", "HEAD")
+			if res, err := CheckGate(ctx, dir, "perf/history", base, merged); err != nil || !res.OK() {
+				t.Fatalf("merged state: %v %s", err, gateFailures(res))
+			}
+
+			found, err := Locate(ctx, dir, "main", "perf/history", record.ContentHash)
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := merged
+			if strategy == "rebase" {
+				want = gitRun(t, dir, "rev-parse", "HEAD~1") // the rebased code commit
+			}
+			if found[record.ContentHash] != want {
+				t.Fatalf("located %q, want %q", found[record.ContentHash], want)
+			}
+			if strategy != "merge" && gitRun(t, dir, "branch", "--contains", measured, "main") != "" {
+				t.Fatalf("%s merge kept the measured commit on main; the test does not exercise a rewrite", strategy)
+			}
+
+			next := commitFiles(t, dir, map[string]string{"app.txt": "v3"}, "next feature")
+			nextHead := commitRecord(t, dir, gateRecord(t, dir, 3, next, "NEXT", CanonicalMachine))
+			if res, err := CheckGate(ctx, dir, "perf/history", merged, nextHead); err != nil || !res.OK() {
+				t.Fatalf("next PR gate: %v %s", err, gateFailures(res))
+			}
+		})
 	}
 }

@@ -35,9 +35,9 @@ code{background:#f4f4f4;padding:.1rem .3rem}
 `)
 	fmt.Fprint(w, "<h1>Performance comparison</h1>\n")
 	fmt.Fprintf(w, "<p><strong>A:</strong> <code>%s</code> (seq %d, %s, <code>%s</code>)<br>\n",
-		esc(c.NameA), c.RecordA.Sequence, esc(c.RecordA.Tag), c.RecordA.Revision[:8])
+		esc(c.NameA), c.RecordA.Sequence, esc(c.RecordA.Tag), esc(commitLabel(c.RecordA, c.LocatedA)))
 	fmt.Fprintf(w, "<strong>B:</strong> <code>%s</code> (seq %d, %s, <code>%s</code>)</p>\n",
-		esc(c.NameB), c.RecordB.Sequence, esc(c.RecordB.Tag), c.RecordB.Revision[:8])
+		esc(c.NameB), c.RecordB.Sequence, esc(c.RecordB.Tag), esc(commitLabel(c.RecordB, c.LocatedB)))
 	if !c.EnvMatch {
 		fmt.Fprint(w, "<p class=\"warn\">Records come from different environments; deltas are not directly comparable.</p>\n")
 	}

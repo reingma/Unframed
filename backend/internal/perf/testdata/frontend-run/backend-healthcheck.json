@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "workload_id": "backend-healthcheck",
   "kind": "http",
   "started_at": "2026-10-17T05:54:42.545231552Z",
@@ -13,6 +13,7 @@
   "toolchain": {
     "go": "go1.27.2"
   },
+  "content_hash": "2a66ce5990e1d520265d13ed0b712dacc43cb7b8",
   "samples": [
     {
       "metrics": {

@@ -12,7 +12,8 @@ records the design. Run all commands from the repository root.
 - [schema/](schema) — the versioned JSON schemas for the registry, raw run
   artifacts and history records. They are the contract for non-Go producers.
 - `history/` — committed compressed records, one per merge to `main`, named
-  `NNNN-<sha8>.json` (zero-padded sequence plus short measured revision).
+  `NNNN-<sha8>.json` (zero-padded sequence plus short measured revision),
+  bound to the measured content by `content_hash`.
 - `runs/` — raw run artifacts, ephemeral and gitignored.
 - `reports/` — generated comparison reports, gitignored.
 
@@ -68,14 +69,19 @@ BACKEND_ADDR=127.0.0.1:8081 CONTENT_ROOT=perf/content ./backend/bin/server
 PERF_MACHINE=<label> make perf-run
 ```
 
-`make perf-run` builds the backend, the frontend and the perf tool. It runs
-the `http` workloads with `backend/bin/perf run --run <dir>` and then the
+`make perf-run` builds the backend, the frontend and the perf tool. It first
+runs `backend/bin/perf content-hash`, which refuses a worktree with
+uncommitted or untracked changes outside `perf/history/` (gitignored files
+are fine) and prints the content hash of `HEAD`: the git tree ID of
+everything outside `perf/history/`. Every artifact of the run stores that
+hash as `content_hash`. It runs the `http` workloads with `backend/bin/perf run --run <dir>` and then the
 `browser` and `build` workloads with `npm --prefix frontend run perf`. The
 frontend runner starts its own production servers: the Go backend on
 `127.0.0.1:18090` and `next start` on `127.0.0.1:13090`
 ([playwright.perf.config.ts](../frontend/playwright.perf.config.ts)).
 `make perf-run-frontend` runs only the frontend workloads. `PERF_RUN=<dir>`
-selects the run directory for either target.
+selects the run directory for either target. The frontend runner takes the
+hash from `PERF_CONTENT_HASH`, which both targets set.
 
 Artifacts land under `perf/runs/<UTC timestamp>/<workload-id>.json`. The
 machine label comes from `PERF_MACHINE` (or `--machine` for the Go runner)
@@ -88,11 +94,20 @@ Compress the latest run into a committed record for the merge it belongs to:
 make perf-record TAG=ENG-<n>       # or backend/bin/perf compress --tag ENG-<n>
 ```
 
-`compress` reads the newest run directory (`--run` selects another), records
-`git rev-parse HEAD` as the measured revision (`--revision` overrides) and
-writes the next sequenced file under `perf/history/`. It refuses a run whose
-artifacts come from different hosts. Commit the record with the merge it
-measures.
+`compress` reads the newest run directory (`--run` selects another) and
+writes the next sequenced file under `perf/history/`. The record takes the
+run's `content_hash` and records `HEAD` (or `--revision <sha>`) as the
+measured `revision`, refusing a commit whose content differs from what the
+run measured. It refuses a run whose artifacts come from different hosts or
+carry different content hashes. Commit the record with the merge it measures.
+
+The `revision` is informational: a squash or rebase merge drops it from
+`main`. To find the code a record measured, run
+`make perf-locate RECORD=perf/history/<file>` (or
+`backend/bin/perf locate [--ref main] <file>`). It prints the oldest commit
+on `main`'s first-parent history whose content outside `perf/history/`
+matches the record's `content_hash`. Version 1 and 2 records predate the
+hash and only have their revision.
 
 ## The merge gate
 
@@ -104,24 +119,31 @@ the newest record must be bound to what merges. The CI `perf-history` job runs
 - Committed records are immutable: the diff may only add files under
   `perf/history/`, never modify or delete existing ones.
 - At least one `NNNN-<sha8>.json` record is added, and the head history
-  satisfies the same name/sequence/parse rules as `perf validate`.
-- The newest record's `revision` names the measured commit. Because a commit
-  cannot embed its own SHA, the check is content equality: everything outside
-  `perf/history/` must be identical between `revision` and head — after the
-  measured commit, only record appends are allowed. A record therefore lands
-  in its own commit (or commits) on top of the measured head, and **any push
-  after measuring** — review feedback, rebase, typo fix — requires re-running
-  `make perf-run` and `make perf-record` and appending a fresh record.
+  satisfies the same name/sequence/parse rules as `perf validate`. Every
+  added record is version 3, with a `content_hash`.
+- The newest record's `content_hash` equals head's: everything outside
+  `perf/history/` is identical to what was measured, so only record appends
+  came after the measured commit. Its `revision` need not resolve, so squash,
+  rebase and merge-commit merges all keep history verifiable
+  ([ADR 0008](../docs/decisions/0008-content-bound-history-records.md)).
+  A record therefore lands in its own commit (or commits) on top of the
+  measured head, and **any push after measuring** — review feedback, rebase,
+  typo fix — requires re-running `make perf-run` and `make perf-record` and
+  appending a fresh record. A failure prints both hashes and, when the
+  revision still resolves, the changed paths.
 - `environment.machine != "workstation-1"` passes with a visible
   non-canonical warning.
 
 The gate checks presence and binding only; it cannot produce measurements and
-sets no performance thresholds.
+sets no performance thresholds. Binding proves the record names the merged
+content, not that the measurement ran on `workstation-1`. A PR squashed while
+`main` has moved on lands content nobody measured; the next PR's record
+measures it again.
 
 To satisfy it: finish the change, then on the designated machine run
 `make perf-run` and `make perf-record TAG=ENG-<n>` at the final head, commit
-the record file and push. A backfill of an old merge is appended the same way
-with `compress --revision <sha>`; the newest record still must bind to this
+the record file and push. A backfill of an old merge is measured at a checkout of that
+commit and compressed with `compress --revision <sha>`; the newest record still must bind to this
 merge's head, so a PR may not carry only a backfill.
 
 Work authored somewhere other than the designated machine — a cloud session,
@@ -138,6 +160,8 @@ make perf-compare                  # latest two records, text table
 make perf-report                   # HTML + SVG report under perf/reports/
 ```
 
+Both name each record's located commit on `main` (`--ref` selects another
+branch) next to its measured revision.
 `compare --a <file> --b <file>` compares an arbitrary pair and `--json` emits
 the same analysis for tooling. Deltas are `B - A` with a 95% confidence
 interval on each mean, computed from stored n/mean/variance (Welch form,
@@ -160,6 +184,9 @@ deltas include the toolchain effect.
 - Schema version 2 introduced per-workload toolchains. Version 1 records
   keep their file contents. They are read as version 2, with their
   record-level Go toolchain moved to each workload.
+- Schema version 3 added `content_hash` to run artifacts and records.
+  Version 2 records keep their file contents and have no hash; the workload
+  registry stays at version 2.
 - `make check` parse-validates the registry and every committed record
   (schema version, name/sequence agreement, statistics sanity). It is a
   parse gate, not a performance gate.

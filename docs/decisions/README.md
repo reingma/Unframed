@@ -11,6 +11,7 @@ rather than silently rewriting its history.
 - [0004: content source and authoring format](0004-content-source-and-authoring-format.md)
 - [0005: document envelope, Markdown rendering and event fanout](0005-document-envelope-rendering-and-fanout.md)
 - [0006: snapshot serving and rebuilds](0006-snapshot-serving-and-rebuilds.md)
+- [0007: Next.js page resolution and preview routes](0007-nextjs-page-resolution-and-preview-routes.md)
 
 ## Engineering resources
 

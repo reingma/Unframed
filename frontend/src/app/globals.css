@@ -9,40 +9,103 @@ body {
   margin: 0;
 }
 
+/* Theme values arrive as custom properties set on .site from the resolved
+   configuration; this stylesheet never changes with it. */
+.site {
+  --accent: #315748;
+  --background: #f6f4ef;
+  --text: #202629;
+  min-height: 100vh;
+  color: var(--text);
+  background: var(--background);
+  display: grid;
+  grid-template-columns: minmax(12rem, 16rem) minmax(0, 42rem);
+  grid-template-rows: auto 1fr;
+  gap: 0 3rem;
+  padding: 0 1.5rem;
+}
+
+.site a {
+  color: var(--accent);
+}
+
+.site-header {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.5rem 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--text) 20%, transparent);
+}
+
+.site-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.site-nav ul {
+  list-style: none;
+  margin: 0;
+  padding-left: 1rem;
+}
+
+.site-nav > ul {
+  padding: 2rem 0;
+}
+
+.site-nav li {
+  margin: 0.35rem 0;
+}
+
+.site-nav a[aria-current="page"] {
+  font-weight: 700;
+}
+
 main {
   max-width: 42rem;
+  padding: 2rem 0 4rem;
+}
+
+.status-page {
   margin: 0 auto;
   padding: 4rem 1.5rem;
 }
 
 h1 {
-  font-size: clamp(2.5rem, 8vw, 4rem);
-  letter-spacing: -0.05em;
+  font-size: clamp(2rem, 6vw, 3rem);
+  letter-spacing: -0.03em;
   margin: 0.5rem 0 1rem;
 }
 
-.eyebrow {
-  color: #46555a;
-}
-
-p {
+p,
+li {
   line-height: 1.6;
-}
-
-section {
-  margin-top: 2.5rem;
-  padding: 1.5rem;
-  border: 1px solid #c5c9c5;
-  border-radius: 0.5rem;
-  background: #fff;
-}
-
-h2 {
-  margin-top: 0;
-  font-size: 1.25rem;
 }
 
 pre {
   overflow-x: auto;
-  color: #315748;
+}
+
+.listing ul {
+  padding-left: 1.25rem;
+}
+
+.listing li p {
+  margin: 0.25rem 0 0;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border: 1px solid var(--accent);
+  border-radius: 0.25rem;
+  color: var(--accent);
+  font-size: 0.85rem;
+}
+
+@media (max-width: 48rem) {
+  .site {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }

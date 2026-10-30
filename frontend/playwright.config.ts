@@ -1,5 +1,14 @@
 import { defineConfig } from "@playwright/test";
 
+import {
+  BACKEND,
+  PREVIEW_TOKEN,
+  SITE,
+  SITE_WITHOUT_BACKEND,
+} from "./e2e/servers";
+
+const port = (url: string) => new URL(url).port;
+
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
@@ -13,23 +22,25 @@ export default defineConfig({
   webServer: [
     {
       command: "../backend/bin/server",
-      url: "http://127.0.0.1:18080/healthcheck",
+      url: `${BACKEND}/healthcheck`,
       env: {
-        BACKEND_ADDR: "127.0.0.1:18080",
-        CONTENT_ROOT: "../examples/site",
+        BACKEND_ADDR: new URL(BACKEND).host,
+        CONTENT_ROOT: "./e2e/content",
+        PREVIEW_TOKEN,
       },
       reuseExistingServer: false,
       gracefulShutdown: { signal: "SIGTERM", timeout: 5_000 },
     },
     {
-      command: "npm run start -- --hostname 127.0.0.1 --port 13000",
-      url: "http://127.0.0.1:13000",
-      env: { BACKEND_URL: "http://127.0.0.1:18080" },
+      command: `npm run start -- --hostname 127.0.0.1 --port ${port(SITE)}`,
+      url: SITE,
+      env: { BACKEND_URL: BACKEND },
       reuseExistingServer: false,
     },
     {
-      command: "npm run start -- --hostname 127.0.0.1 --port 13001",
-      url: "http://127.0.0.1:13001",
+      // Every page of this server fails, so readiness is its startup line.
+      command: `npm run start -- --hostname 127.0.0.1 --port ${port(SITE_WITHOUT_BACKEND)}`,
+      wait: { stdout: /Ready in/ },
       env: { BACKEND_URL: "http://127.0.0.1:18081" },
       reuseExistingServer: false,
     },

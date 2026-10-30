@@ -100,6 +100,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Streamlined Go skill guidance with explicit on-demand examples and a colocated
   token-performance report convention, preserving shared principles and safeguards.
 
+### Security
+
+- Request logs redact a preview token after a `preview` segment in any letter
+  case, such as `/Preview/<token>/articles/a`, and after a `preview` segment
+  inside a preview path's tail.
+
 ## [1.1.2] - 2024-09-27
 
 ### Added

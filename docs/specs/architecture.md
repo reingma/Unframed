@@ -167,7 +167,8 @@ the bodies are the snapshot's pre-encoded [documents](document-contract.md):
 - Next.js sends `X-Request-ID`. Go keeps an ID of at most 128 characters from
   `[A-Za-z0-9._-]` and otherwise generates one, and echoes it in the response.
   Each request log carries it, the URL path with everything after a `preview`
-  segment redacted (a well-formed preview path keeps its tail),
+  segment in any letter case redacted (a well-formed preview path keeps a
+  tail that has no `preview` segment of its own),
   the status, the duration and the serving build ID.
 - Every response comes from one snapshot. Requests never read the content
   source; the watcher keeps snapshots fresh. Content hashes are computed but no

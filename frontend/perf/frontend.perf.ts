@@ -5,7 +5,7 @@ import {
   readRegistry,
   repoRoot,
   runConfig,
-  SCHEMA_VERSION,
+  newArtifact,
   writeArtifact,
   type BrowserWorkload,
   type BuildWorkload,
@@ -48,16 +48,17 @@ function runBrowserWorkload(w: BrowserWorkload) {
     for (let i = 0; i < w.repetitions; i++) {
       samples.push(await measurePageLoad(browser, url));
     }
-    writeArtifact(config.runDir, {
-      version: SCHEMA_VERSION,
-      workload_id: w.id,
-      kind: "browser",
-      started_at: startedAt.toISOString(),
-      finished_at: new Date().toISOString(),
-      environment,
-      toolchain: { node: process.version, chromium: browser.version() },
-      samples,
-    });
+    writeArtifact(
+      config.runDir,
+      newArtifact(config, environment, {
+        workload_id: w.id,
+        kind: "browser",
+        started_at: startedAt.toISOString(),
+        finished_at: new Date().toISOString(),
+        toolchain: { node: process.version, chromium: browser.version() },
+        samples,
+      }),
+    );
   });
 }
 
@@ -69,16 +70,17 @@ function runBuildWorkload(w: BuildWorkload) {
     }
     const startedAt = new Date();
     const sample = bundleSample(buildDir);
-    writeArtifact(config.runDir, {
-      version: SCHEMA_VERSION,
-      workload_id: w.id,
-      kind: "build",
-      started_at: startedAt.toISOString(),
-      finished_at: new Date().toISOString(),
-      environment,
-      toolchain: { node: process.version },
-      samples: [sample],
-    });
+    writeArtifact(
+      config.runDir,
+      newArtifact(config, environment, {
+        workload_id: w.id,
+        kind: "build",
+        started_at: startedAt.toISOString(),
+        finished_at: new Date().toISOString(),
+        toolchain: { node: process.version },
+        samples: [sample],
+      }),
+    );
   });
 }
 

@@ -7,7 +7,9 @@ import {
   parseRegistry,
   readRegistry,
   repoRoot,
+  newArtifact,
   runConfig,
+  SCHEMA_VERSION,
   writeArtifact,
   type RunArtifact,
 } from "./artifact";
@@ -50,19 +52,43 @@ describe("parseRegistry", () => {
   });
 });
 
+const contentHash = "2a66ce5990e1d520265d13ed0b712dacc43cb7b8";
+const runEnv = {
+  PERF_MACHINE: "m",
+  PERF_RUN_DIR: "perf/runs/x",
+  PERF_CONTENT_HASH: contentHash,
+};
+
 describe("runConfig", () => {
-  it("requires a machine label and run directory", () => {
-    expect(() => runConfig({ PERF_RUN_DIR: "perf/runs/x" })).toThrow(
+  it("requires a machine label, run directory and content hash", () => {
+    expect(() => runConfig({ ...runEnv, PERF_MACHINE: undefined })).toThrow(
       /PERF_MACHINE/,
     );
-    expect(() => runConfig({ PERF_MACHINE: "m" })).toThrow(/PERF_RUN_DIR/);
+    expect(() => runConfig({ ...runEnv, PERF_RUN_DIR: undefined })).toThrow(
+      /PERF_RUN_DIR/,
+    );
+    for (const hash of [
+      undefined,
+      "",
+      "HEAD",
+      contentHash.slice(1),
+      contentHash.toUpperCase(),
+    ]) {
+      expect(() => runConfig({ ...runEnv, PERF_CONTENT_HASH: hash })).toThrow(
+        /PERF_CONTENT_HASH/,
+      );
+    }
+  });
+
+  it("accepts SHA-256 content hashes", () => {
+    const sha256 = "a".repeat(64);
+    expect(
+      runConfig({ ...runEnv, PERF_CONTENT_HASH: sha256 }).contentHash,
+    ).toBe(sha256);
   });
 
   it("resolves paths from the repository root", () => {
-    const config = runConfig({
-      PERF_MACHINE: "m",
-      PERF_RUN_DIR: "perf/runs/x",
-    });
+    const config = runConfig(runEnv);
     expect(config.runDir).toBe(path.join(repoRoot, "perf/runs/x"));
     expect(config.registry).toBe(path.join(repoRoot, "perf/workloads.json"));
   });
@@ -72,21 +98,26 @@ describe("writeArtifact", () => {
   let dir = "";
   afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
-  it("writes <id>.json once and refuses to overwrite it", () => {
+  it("writes <id>.json once, with the run's content hash, and refuses to overwrite it", () => {
     dir = mkdtempSync(path.join(tmpdir(), "perf-"));
-    const artifact: RunArtifact = {
-      version: 2,
+    const environment = detectEnvironment("m");
+    const artifact: RunArtifact = newArtifact(runConfig(runEnv), environment, {
       workload_id: "frontend-root",
       kind: "browser",
       started_at: "2026-10-17T00:00:00.000Z",
       finished_at: "2026-10-17T00:00:01.000Z",
-      environment: detectEnvironment("m"),
       toolchain: { node: "v26.11.1" },
       samples: [{ metrics: { ttfb_ms: 1 }, status: 200 }],
-    };
+    });
     const runDir = path.join(dir, "run");
     const file = writeArtifact(runDir, artifact);
-    expect(JSON.parse(readFileSync(file, "utf8"))).toEqual(artifact);
+    const written = JSON.parse(readFileSync(file, "utf8"));
+    expect(written).toEqual(artifact);
+    expect(written).toMatchObject({
+      version: SCHEMA_VERSION,
+      content_hash: contentHash,
+      environment,
+    });
     expect(() => writeArtifact(runDir, artifact)).toThrow();
   });
 });

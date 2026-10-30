@@ -36,10 +36,14 @@ type ToolchainChange struct {
 
 // Comparison is the analysis of two history records.
 type Comparison struct {
-	NameA            string
-	NameB            string
-	RecordA          HistoryRecord
-	RecordB          HistoryRecord
+	NameA   string
+	NameB   string
+	RecordA HistoryRecord
+	RecordB HistoryRecord
+	// LocatedA and LocatedB are the commits whose content matches each
+	// record (see Locate), or empty when unknown.
+	LocatedA         string `json:",omitempty"`
+	LocatedB         string `json:",omitempty"`
 	EnvMatch         bool
 	ToolchainChanges []ToolchainChange
 	Deltas           []MetricDelta
@@ -126,11 +130,20 @@ func CompareRecords(nameA string, a HistoryRecord, nameB string, b HistoryRecord
 	return c
 }
 
+// commitLabel names the code a record measured: the located commit when
+// known, otherwise the measured revision, which may no longer exist on main.
+func commitLabel(r HistoryRecord, located string) string {
+	if located != "" {
+		return "commit " + located[:8] + ", measured " + r.Revision[:8]
+	}
+	return "measured " + r.Revision[:8]
+}
+
 // WriteText renders a comparison as a plain-text table.
 func (c Comparison) WriteText(w io.Writer) error {
 	var sb strings.Builder
-	fmt.Fprintf(&sb, "A: %s (seq %d, %s, %s)\n", c.NameA, c.RecordA.Sequence, c.RecordA.Tag, c.RecordA.Revision[:8])
-	fmt.Fprintf(&sb, "B: %s (seq %d, %s, %s)\n", c.NameB, c.RecordB.Sequence, c.RecordB.Tag, c.RecordB.Revision[:8])
+	fmt.Fprintf(&sb, "A: %s (seq %d, %s, %s)\n", c.NameA, c.RecordA.Sequence, c.RecordA.Tag, commitLabel(c.RecordA, c.LocatedA))
+	fmt.Fprintf(&sb, "B: %s (seq %d, %s, %s)\n", c.NameB, c.RecordB.Sequence, c.RecordB.Tag, commitLabel(c.RecordB, c.LocatedB))
 	if !c.EnvMatch {
 		fmt.Fprintln(&sb, "WARNING: records come from different environments; deltas are not directly comparable.")
 		fmt.Fprintf(&sb, "  A environment: %+v\n", c.RecordA.Environment)

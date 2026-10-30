@@ -44,8 +44,9 @@ func CompressArtifact(a RunArtifact) (WorkloadStats, error) {
 }
 
 // BuildRecord compresses one run's artifacts into a history record. All
-// artifacts must share one host environment; mixing machines inside a record
-// is rejected rather than pooled. Each workload keeps its own toolchain, so
+// artifacts must share one host environment and one content hash; mixing
+// machines or measured content inside a record is rejected rather than
+// pooled. The record takes the artifacts' content hash. Each workload keeps its own toolchain, so
 // Go and browser producers can contribute to the same record.
 func BuildRecord(artifacts []RunArtifact, revision, tag string, now time.Time) (HistoryRecord, error) {
 	if len(artifacts) == 0 {
@@ -58,10 +59,15 @@ func BuildRecord(artifacts []RunArtifact, revision, tag string, now time.Time) (
 		return HistoryRecord{}, fmt.Errorf("tag is required (changelog or issue tag)")
 	}
 	env := artifacts[0].Environment
+	content := artifacts[0].ContentHash
 	workloads := make([]WorkloadStats, 0, len(artifacts))
 	for _, a := range artifacts {
 		if !a.Environment.Equal(env) {
 			return HistoryRecord{}, fmt.Errorf("artifact %q has a different environment; refusing to pool", a.WorkloadID)
+		}
+		if a.ContentHash != content {
+			return HistoryRecord{}, fmt.Errorf("artifact %q measured content %s, but %q measured %s; refusing to pool",
+				a.WorkloadID, a.ContentHash, artifacts[0].WorkloadID, content)
 		}
 		ws, err := CompressArtifact(a)
 		if err != nil {
@@ -81,6 +87,7 @@ func BuildRecord(artifacts []RunArtifact, revision, tag string, now time.Time) (
 	return HistoryRecord{
 		Version:     SchemaVersion,
 		Revision:    revision,
+		ContentHash: content,
 		Tag:         tag,
 		RecordedAt:  now.UTC(),
 		Environment: env,

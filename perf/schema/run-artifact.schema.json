@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://unframed.local/perf/schema/run-artifact.schema.json",
   "title": "Raw run artifact",
-  "description": "Ephemeral per-workload output of one measurement run. Gitignored, regenerable at a git state.",
+  "description": "Ephemeral per-workload output of one measurement run. Gitignored, regenerable at the git state its content_hash names.",
   "type": "object",
   "required": [
     "version",
@@ -12,17 +12,23 @@
     "finished_at",
     "environment",
     "toolchain",
+    "content_hash",
     "samples"
   ],
   "additionalProperties": false,
   "properties": {
-    "version": {"const": 2},
+    "version": {"const": 3},
     "workload_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
     "kind": {"enum": ["http", "browser", "build"]},
     "started_at": {"type": "string", "format": "date-time"},
     "finished_at": {"type": "string", "format": "date-time"},
     "environment": {"$ref": "#/$defs/environment"},
     "toolchain": {"$ref": "#/$defs/toolchain"},
+    "content_hash": {
+      "type": "string",
+      "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})$",
+      "description": "Git tree ID of the measured commit's content outside perf/history/, as `perf content-hash` prints it."
+    },
     "samples": {
       "type": "array",
       "items": {

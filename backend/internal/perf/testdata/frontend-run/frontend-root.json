@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "workload_id": "frontend-root",
   "kind": "browser",
   "started_at": "2026-10-17T05:54:24.013Z",
@@ -14,6 +14,7 @@
     "node": "v26.11.1",
     "chromium": "153.0.8010.12"
   },
+  "content_hash": "2a66ce5990e1d520265d13ed0b712dacc43cb7b8",
   "samples": [
     {
       "metrics": {

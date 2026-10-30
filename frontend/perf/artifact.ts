@@ -5,7 +5,8 @@ import { z } from "zod";
 
 // The run-artifact contract is perf/schema/run-artifact.schema.json; the Go
 // perf tool parses, validates and compresses what this module writes.
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
+export const REGISTRY_VERSION = 2;
 
 export const repoRoot = path.resolve(import.meta.dirname, "../..");
 
@@ -23,7 +24,7 @@ const workloadSchema = z.discriminatedUnion("kind", [
 ]);
 
 const registrySchema = z.object({
-  version: z.literal(SCHEMA_VERSION),
+  version: z.literal(REGISTRY_VERSION),
   workloads: z.array(workloadSchema).min(1),
 });
 
@@ -64,6 +65,7 @@ export type RunArtifact = {
   finished_at: string;
   environment: Environment;
   toolchain: Toolchain;
+  content_hash: string;
   samples: Sample[];
 };
 
@@ -88,7 +90,15 @@ export function detectEnvironment(
   };
 }
 
-export type RunConfig = { runDir: string; machine: string; registry: string };
+export type RunConfig = {
+  runDir: string;
+  machine: string;
+  registry: string;
+  contentHash: string;
+};
+
+// A git object ID in either object format, as `perf content-hash` prints it.
+const contentHashPattern = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
 
 export function runConfig(
   env: Record<string, string | undefined> = process.env,
@@ -103,13 +113,35 @@ export function runConfig(
   if (!runDir) {
     throw new Error("PERF_RUN_DIR is required (the shared run directory)");
   }
+  const contentHash = env.PERF_CONTENT_HASH ?? "";
+  if (!contentHashPattern.test(contentHash)) {
+    throw new Error(
+      "PERF_CONTENT_HASH must be the output of `perf content-hash` (make perf-run sets it)",
+    );
+  }
   return {
     machine,
+    contentHash,
     runDir: path.resolve(repoRoot, runDir),
     registry: path.resolve(
       repoRoot,
       env.PERF_REGISTRY ?? "perf/workloads.json",
     ),
+  };
+}
+
+// newArtifact stamps a workload's measurements with the run's schema
+// version, environment and measured content hash.
+export function newArtifact(
+  config: RunConfig,
+  environment: Environment,
+  fields: Omit<RunArtifact, "version" | "environment" | "content_hash">,
+): RunArtifact {
+  return {
+    version: SCHEMA_VERSION,
+    ...fields,
+    environment,
+    content_hash: config.contentHash,
   };
 }
 

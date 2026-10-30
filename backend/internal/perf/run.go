@@ -12,7 +12,8 @@ import (
 // RunHTTPWorkload executes one http registry workload with vegeta's open
 // load model at constant rate and collects the raw samples. Response bodies
 // are never retained: artifacts carry metrics, status and error strings only.
-func RunHTTPWorkload(ctx context.Context, w Workload, env Environment) (RunArtifact, error) {
+// contentHash is the measured content (see ContentHash).
+func RunHTTPWorkload(ctx context.Context, w Workload, env Environment, contentHash string) (RunArtifact, error) {
 	if w.Kind != KindHTTP {
 		return RunArtifact{}, fmt.Errorf("workload %q kind %q is not http", w.ID, w.Kind)
 	}
@@ -81,6 +82,7 @@ func RunHTTPWorkload(ctx context.Context, w Workload, env Environment) (RunArtif
 		FinishedAt:  time.Now().UTC(),
 		Environment: env,
 		Toolchain:   GoToolchain(),
+		ContentHash: contentHash,
 		Samples:     samples,
 	}, nil
 }

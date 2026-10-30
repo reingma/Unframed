@@ -25,6 +25,7 @@ func testArtifact() RunArtifact {
 		FinishedAt:  time.Date(2026, 10, 15, 12, 0, 10, 0, time.UTC),
 		Environment: testEnvironment(),
 		Toolchain:   Toolchain{"go": "go1.27.2"},
+		ContentHash: testContent,
 		Samples: []Sample{
 			{Metrics: map[string]float64{"latency_ns": 1000}, Status: 200},
 			{Metrics: map[string]float64{"latency_ns": 2000}, Status: 200},
@@ -70,6 +71,7 @@ func testRecord(seq int, rev, tag string) HistoryRecord {
 		Version:     SchemaVersion,
 		Sequence:    seq,
 		Revision:    rev,
+		ContentHash: testContent,
 		Tag:         tag,
 		RecordedAt:  time.Date(2026, 10, 15, 12, 30, 0, 0, time.UTC),
 		Environment: testEnvironment(),
@@ -81,6 +83,28 @@ func testRecord(seq int, rev, tag string) HistoryRecord {
 			Errors:    0,
 			Metrics:   map[string]MetricStats{"latency_ns": testStats()},
 		}},
+	}
+}
+
+// testContent is a content hash; the scratch-repo tests compute real ones.
+const testContent = "2a66ce5990e1d520265d13ed0b712dacc43cb7b8"
+
+func TestParseHistoryRecordKeepsV2(t *testing.T) {
+	v2 := testRecord(1, "e461931122f0d9f2b1a3c4e5f60718293a4b5c6d", "ENG-30")
+	v2.Version, v2.ContentHash = legacyRecordVersion, ""
+	data, err := MarshalHistoryRecord(v2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "content_hash") {
+		t.Fatalf("a version 2 record must marshal without content_hash:\n%s", data)
+	}
+	got, err := ParseHistoryRecord(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Version != legacyRecordVersion || got.ContentHash != "" {
+		t.Fatalf("got version %d content %q", got.Version, got.ContentHash)
 	}
 }
 
@@ -112,8 +136,11 @@ func TestParseRunArtifactRejects(t *testing.T) {
 		t.Fatal(err)
 	}
 	cases := map[string]string{
-		"unknown member": strings.Replace(string(valid), `"version": 2`, `"version": 2, "extra": true`, 1),
-		"bad version":    strings.Replace(string(valid), `"version": 2`, `"version": 1`, 1),
+		"unknown member": strings.Replace(string(valid), `"version": 3`, `"version": 3, "extra": true`, 1),
+		"bad version":    strings.Replace(string(valid), `"version": 3`, `"version": 2`, 1),
+		"no hash":        strings.Replace(string(valid), testContent, ``, 1),
+		"short hash":     strings.Replace(string(valid), testContent, testContent[:39], 1),
+		"upper hash":     strings.Replace(string(valid), testContent, strings.ToUpper(testContent), 1),
 		"empty id":       strings.Replace(string(valid), `"workload_id": "backend-healthcheck"`, `"workload_id": ""`, 1),
 		"bad id shape":   strings.Replace(string(valid), `"workload_id": "backend-healthcheck"`, `"workload_id": "Has Space"`, 1),
 		"bad kind":       strings.Replace(string(valid), `"kind": "http"`, `"kind": "rpc"`, 1),
@@ -145,8 +172,11 @@ func TestParseHistoryRecordRejects(t *testing.T) {
 		t.Fatal(err)
 	}
 	cases := map[string]string{
-		"unknown member":   strings.Replace(string(valid), `"version": 2`, `"version": 2, "extra": 1`, 1),
-		"bad version":      strings.Replace(string(valid), `"version": 2`, `"version": 9`, 1),
+		"unknown member":   strings.Replace(string(valid), `"version": 3`, `"version": 3, "extra": 1`, 1),
+		"bad version":      strings.Replace(string(valid), `"version": 3`, `"version": 9`, 1),
+		"v3 without hash":  strings.Replace(string(valid), `"content_hash": "`+testContent+`",`, ``, 1),
+		"v2 with hash":     strings.Replace(string(valid), `"version": 3`, `"version": 2`, 1),
+		"non-hex hash":     strings.Replace(string(valid), testContent, "g"+testContent[1:], 1),
 		"no toolchain":     strings.Replace(string(valid), `"go": "go1.27.2"`, ``, 1),
 		"bad revision":     strings.Replace(string(valid), `"e461931122f0d9f2b1a3c4e5f60718293a4b5c6d"`, `"notasha"`, 1),
 		"empty tag":        strings.Replace(string(valid), `"tag": "ENG-30"`, `"tag": ""`, 1),
@@ -193,7 +223,7 @@ func TestParseHistoryRecordUpgradesV1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if r.Version != SchemaVersion || r.Environment != testEnvironment() {
+	if r.Version != legacyRecordVersion || r.ContentHash != "" || r.Environment != testEnvironment() {
 		t.Fatalf("got version %d environment %+v", r.Version, r.Environment)
 	}
 	if !r.Workloads[0].Toolchain.Equal(Toolchain{"go": "go1.27.2"}) {

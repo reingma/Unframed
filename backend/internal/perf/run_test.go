@@ -25,7 +25,7 @@ func TestRunHTTPWorkloadEndToEnd(t *testing.T) {
 		Rate:     &rate,
 		Duration: "200ms",
 	}
-	artifact, err := RunHTTPWorkload(context.Background(), w, testEnvironment())
+	artifact, err := RunHTTPWorkload(context.Background(), w, testEnvironment(), testContent)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,7 +74,7 @@ func TestRunHTTPWorkloadNoRedirects(t *testing.T) {
 
 	rate := 5.0
 	w := Workload{ID: "fixture-redirect", Kind: KindHTTP, Target: server.URL, Rate: &rate, Duration: "200ms"}
-	artifact, err := RunHTTPWorkload(context.Background(), w, testEnvironment())
+	artifact, err := RunHTTPWorkload(context.Background(), w, testEnvironment(), testContent)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,14 +103,14 @@ func TestRunHTTPWorkloadCancelled(t *testing.T) {
 	cancel()
 	rate := 50.0
 	w := Workload{ID: "fixture-cancel", Kind: KindHTTP, Target: server.URL, Rate: &rate, Duration: "5s"}
-	if _, err := RunHTTPWorkload(ctx, w, testEnvironment()); err == nil {
+	if _, err := RunHTTPWorkload(ctx, w, testEnvironment(), testContent); err == nil {
 		t.Error("expected interruption error for cancelled context")
 	}
 }
 
 func TestRunHTTPWorkloadRequiresRate(t *testing.T) {
 	w := Workload{ID: "fixture-norate", Kind: KindHTTP, Target: "http://127.0.0.1:1/", Duration: "1s"}
-	if _, err := RunHTTPWorkload(context.Background(), w, testEnvironment()); err == nil {
+	if _, err := RunHTTPWorkload(context.Background(), w, testEnvironment(), testContent); err == nil {
 		t.Error("expected error for missing rate")
 	}
 }
@@ -139,7 +139,7 @@ func TestRunHTTPWorkloadExpectedStatus(t *testing.T) {
 		{"/ok", nil, false},
 	} {
 		w := Workload{ID: "fixture-status", Kind: KindHTTP, Target: server.URL + tc.path, Rate: &rate, Duration: "100ms", Status: tc.status}
-		artifact, err := RunHTTPWorkload(context.Background(), w, testEnvironment())
+		artifact, err := RunHTTPWorkload(context.Background(), w, testEnvironment(), testContent)
 		if err != nil {
 			t.Fatal(err)
 		}

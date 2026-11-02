@@ -43,74 +43,75 @@ func TestScanRedirects(t *testing.T) {
 		t.Fatalf("errors = %v", manifest.Errors)
 	}
 	want := []content.Redirect{
-		{From: "/archive/essays", To: "/essays", Prefix: true},
-		{From: "/archive/essays/old-title", To: "/essays/new-title"},
-		{From: "/archive/essays/older-title", To: "/essays/new-title"},
-		{From: "/elsewhere/moved", To: "/essays/moved"},
-		{From: "/essays/old-title", To: "/essays/new-title"},
-		{From: "/essays/older-title", To: "/essays/new-title"},
-		{From: "/writing", To: "/essays", Prefix: true},
-		{From: "/writing/old-title", To: "/essays/new-title"},
-		{From: "/writing/older-title", To: "/essays/new-title"},
+		{From: alias(t, "/archive/essays"), To: "/essays", Prefix: true},
+		{From: alias(t, "/elsewhere/moved"), To: "/essays/moved"},
+		{From: alias(t, "/essays/old-title"), To: "/essays/new-title"},
+		{From: alias(t, "/essays/older-title"), To: "/essays/new-title"},
+		{From: alias(t, "/writing"), To: "/essays", Prefix: true},
 	}
 	if !reflect.DeepEqual(manifest.Redirects, want) {
 		t.Fatalf("redirects =\n%v\nwant\n%v", manifest.Redirects, want)
 	}
 }
 
-func TestScanRedirectChainsThroughNestedDirectories(t *testing.T) {
+func alias(t *testing.T, raw string) content.Alias {
+	t.Helper()
+	a, err := content.ParseAlias(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return a
+}
+
+// A subsection flattened into its parent leaves the parent an alias below
+// itself; following it consumes a segment per hop, so it is no loop.
+func TestScanAcceptsAliasBelowOwnDirectory(t *testing.T) {
 	manifest := scanTree(t, map[string]string{
 		".configuration":            validRoot,
-		"Notes/.configuration":      aliases("/old-notes"),
-		"Notes/Math/.configuration": aliases("/notes/maths"),
+		"Notes/.configuration":      aliases("/notes/old", "/old-notes"),
+		"Notes/Math/.configuration": aliases("/notes/old/maths"),
 		"Notes/Math/Proof.md":       frontmatter(aliases("/notes/math/lemma")),
 	})
-	got := map[string]content.Redirect{}
-	for _, r := range manifest.Redirects {
-		got[r.From] = r
+	if len(manifest.Errors) != 0 {
+		t.Fatalf("errors = %v", manifest.Errors)
 	}
-	for from, want := range map[string]content.Redirect{
-		"/old-notes":             {From: "/old-notes", To: "/notes", Prefix: true},
-		"/old-notes/maths":       {From: "/old-notes/maths", To: "/notes/math", Prefix: true},
-		"/old-notes/maths/lemma": {From: "/old-notes/maths/lemma", To: "/notes/math/proof"},
-		"/old-notes/math/lemma":  {From: "/old-notes/math/lemma", To: "/notes/math/proof"},
-		"/notes/maths/lemma":     {From: "/notes/maths/lemma", To: "/notes/math/proof"},
-	} {
-		if got[from] != want {
-			t.Errorf("redirect %s = %+v, want %+v", from, got[from], want)
-		}
+	want := []content.Redirect{
+		{From: alias(t, "/notes/math/lemma"), To: "/notes/math/proof"},
+		{From: alias(t, "/notes/old"), To: "/notes", Prefix: true},
+		{From: alias(t, "/notes/old/maths"), To: "/notes/math", Prefix: true},
+		{From: alias(t, "/old-notes"), To: "/notes", Prefix: true},
+	}
+	if !reflect.DeepEqual(manifest.Redirects, want) {
+		t.Fatalf("redirects =\n%v\nwant\n%v", manifest.Redirects, want)
 	}
 	checkRedirectInvariants(t, manifest)
 }
 
 func TestScanRejectsInvalidAliases(t *testing.T) {
 	manifest := scanTree(t, map[string]string{
-		".configuration":      validRoot,
-		"Self.md":             frontmatter(aliases("/self", "/kept")),
-		"First.md":            frontmatter(aliases("/shared")),
-		"Second.md":           frontmatter(aliases("/shared")),
-		"Shadow.md":           frontmatter(aliases("/live")),
-		"Live.md":             "",
-		"Ping.md":             frontmatter(aliases("/pong")),
-		"Pong.md":             frontmatter(aliases("/ping")),
-		"Dir/.configuration":  aliases("/dir"),
-		"Dir/Article.md":      "",
-		"Hidden.draft.md":     frontmatter(aliases("/hidden", "/live", "/shared")),
-		"Bad.md":              frontmatter(aliases("https://evil.example")),
-		"Nest/.configuration": aliases("/nest/old"),
-		"Nest/Article.md":     "",
+		".configuration":     validRoot,
+		"Self.md":            frontmatter(aliases("/self", "/kept")),
+		"First.md":           frontmatter(aliases("/shared")),
+		"Second.md":          frontmatter(aliases("/shared")),
+		"Shadow.md":          frontmatter(aliases("/live")),
+		"Live.md":            "",
+		"Ping.md":            frontmatter(aliases("/pong")),
+		"Pong.md":            frontmatter(aliases("/ping")),
+		"Dir/.configuration": aliases("/dir"),
+		"Dir/Article.md":     "",
+		"Hidden.draft.md":    frontmatter(aliases("/hidden", "/live", "/shared")),
+		"Bad.md":             frontmatter(aliases("https://evil.example")),
 	})
 	want := map[string]error{
-		"Self.md":             ErrSelfAlias,
-		"First.md":            ErrDuplicateAlias,
-		"Second.md":           ErrDuplicateAlias,
-		"Shadow.md":           ErrAliasShadowsPath,
-		"Ping.md":             ErrRedirectLoop,
-		"Pong.md":             ErrRedirectLoop,
-		"Dir/.configuration":  ErrSelfAlias,
-		"Hidden.draft.md":     ErrSelfAlias,
-		"Bad.md":              content.ErrInvalidConfig,
-		"Nest/.configuration": ErrRedirectLoop,
+		"Self.md":            ErrSelfAlias,
+		"First.md":           ErrDuplicateAlias,
+		"Second.md":          ErrDuplicateAlias,
+		"Shadow.md":          ErrAliasShadowsPath,
+		"Ping.md":            ErrAliasShadowsPath,
+		"Pong.md":            ErrAliasShadowsPath,
+		"Dir/.configuration": ErrSelfAlias,
+		"Hidden.draft.md":    ErrSelfAlias,
+		"Bad.md":             content.ErrInvalidConfig,
 	}
 	got := map[string][]error{}
 	for _, validation := range manifest.Errors {
@@ -127,7 +128,7 @@ func TestScanRejectsInvalidAliases(t *testing.T) {
 	if hidden := got["Hidden.draft.md"]; len(hidden) != 2 || !errors.Is(hidden[1], ErrAliasShadowsPath) {
 		t.Errorf("draft alias errors = %v, want self alias then shadowed path; drafts claim no alias", hidden)
 	}
-	if !slices.Equal(manifest.Redirects, []content.Redirect{{From: "/kept", To: "/self"}}) {
+	if !slices.Equal(manifest.Redirects, []content.Redirect{{From: alias(t, "/kept"), To: "/self"}}) {
 		t.Errorf("redirects = %v, want only the valid alias of a kept item", manifest.Redirects)
 	}
 	published := map[string]bool{}
@@ -145,8 +146,8 @@ func TestScanRejectsInvalidAliases(t *testing.T) {
 }
 
 // checkRedirectInvariants checks the redirect map contract: sorted unique
-// sources that are never published, published targets, and one hop, since
-// no target is at or below any source.
+// sources that are never published, published targets, and no target at or
+// below any source, so following redirects ends.
 func checkRedirectInvariants(t *testing.T, manifest *content.Manifest) {
 	t.Helper()
 	live := map[string]bool{}
@@ -159,15 +160,15 @@ func checkRedirectInvariants(t *testing.T, manifest *content.Manifest) {
 	}
 	walk(manifest.Root)
 	for i, r := range manifest.Redirects {
-		if i > 0 && manifest.Redirects[i-1].From >= r.From {
+		if i > 0 && manifest.Redirects[i-1].From.String() >= r.From.String() {
 			t.Fatalf("redirects not sorted and unique at %d: %v", i, manifest.Redirects)
 		}
-		if _, err := content.ParseAlias(r.From); err != nil || live[r.From] || !live[r.To] {
+		if live[r.From.String()] || !live[r.To] {
 			t.Fatalf("redirect %+v: source must be an unpublished alias and target published", r)
 		}
 		for _, other := range manifest.Redirects {
-			if r.To == other.From || (other.Prefix && strings.HasPrefix(r.To, other.From+"/")) {
-				t.Fatalf("redirect %+v reaches redirect %+v: chain not resolved", r, other)
+			if r.To == other.From.String() || strings.HasPrefix(r.To, other.From.String()+"/") {
+				t.Fatalf("redirect %+v targets at or below redirect %+v", r, other)
 			}
 		}
 	}
@@ -214,7 +215,7 @@ func TestScanRedirectProperties(t *testing.T) {
 			checkRedirectInvariants(t, manifest)
 			declared := map[string]bool{}
 			for _, r := range manifest.Redirects {
-				declared[r.From] = true
+				declared[r.From.String()] = true
 			}
 			reported := map[string]int{}
 			for _, validation := range manifest.Errors {

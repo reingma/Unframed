@@ -143,7 +143,7 @@ func NewManifest(root *content.Node, redirects []content.Redirect) Manifest {
 		Redirects:     make([]Redirect, 0, len(redirects)),
 	}
 	for _, r := range redirects {
-		manifest.Redirects = append(manifest.Redirects, Redirect{From: r.From, To: r.To, Prefix: r.Prefix})
+		manifest.Redirects = append(manifest.Redirects, Redirect{From: r.From.String(), To: r.To, Prefix: r.Prefix})
 	}
 	return manifest
 }
@@ -197,17 +197,7 @@ func DecodeManifest(data []byte) (Manifest, error) {
 		errs = append(errs, errors.New(`nav: must be the root directory at "/"`))
 	}
 	errs = append(errs, checkNav("nav", manifest.Nav))
-	from := map[string]bool{}
-	for i, r := range manifest.Redirects {
-		key := fmt.Sprintf("redirects[%d]", i)
-		if _, err := content.ParseAlias(r.From); err != nil {
-			errs = append(errs, fmt.Errorf("%s.from: %w", key, err))
-		} else if from[r.From] {
-			errs = append(errs, fmt.Errorf("%s.from: %s repeats", key, r.From))
-		}
-		from[r.From] = true
-		errs = append(errs, checkURLPath(key+".to", r.To))
-	}
+	errs = append(errs, checkRedirects(manifest.Redirects))
 	if err := invalid(errs); err != nil {
 		return Manifest{}, err
 	}
@@ -243,6 +233,37 @@ func invalid(errs []error) error {
 		return fmt.Errorf("%w: %w", ErrInvalidDocument, err)
 	}
 	return nil
+}
+
+// checkRedirects requires internal slug paths, unique sources and no target
+// at or below a source, which guarantees that following redirects ends.
+func checkRedirects(redirects []Redirect) error {
+	var errs []error
+	from := make(map[string]bool, len(redirects))
+	for i, r := range redirects {
+		key := fmt.Sprintf("redirects[%d]", i)
+		if _, err := content.ParseAlias(r.From); err != nil {
+			errs = append(errs, fmt.Errorf("%s.from: %w", key, err))
+		} else if from[r.From] {
+			errs = append(errs, fmt.Errorf("%s.from: %s repeats", key, r.From))
+		}
+		from[r.From] = true
+		if _, err := content.ParseAlias(r.To); err != nil {
+			errs = append(errs, fmt.Errorf("%s.to: %w", key, err))
+		}
+	}
+	for i, r := range redirects {
+		if !strings.HasPrefix(r.To, "/") {
+			continue
+		}
+		for at := r.To; at != ""; at = at[:strings.LastIndexByte(at, '/')] {
+			if from[at] {
+				errs = append(errs, fmt.Errorf("redirects[%d].to: %s is at or below redirect source %s", i, r.To, at))
+				break
+			}
+		}
+	}
+	return errors.Join(errs...)
 }
 
 func checkURLPath(key, urlPath string) error {

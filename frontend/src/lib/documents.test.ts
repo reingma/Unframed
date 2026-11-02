@@ -114,6 +114,13 @@ describe("manifest schema", () => {
     ["a root source", [{ ...redirect, from: "/" }]],
     ["an uppercase source", [{ ...redirect, from: "/Old" }]],
     ["a relative target", [{ ...redirect, to: "mathematics" }]],
+    ["a scheme-relative target", [{ ...redirect, to: "//evil.example" }]],
+    ["a root target", [{ ...redirect, to: "/" }]],
+    [
+      "a target below a source",
+      [redirect, { from: "/other", to: `${redirect.from}/x`, prefix: false }],
+    ],
+    ["a target at a source", [{ ...redirect, to: redirect.from }]],
     ["a missing prefix flag", [{ from: redirect.from, to: redirect.to }]],
     ["a repeated source", [redirect, redirect]],
     ["redirects that are not a list", {}],

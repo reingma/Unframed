@@ -43,8 +43,16 @@ func tree(t testing.TB) *content.Node {
 }
 
 var redirects = []content.Redirect{
-	{From: "/maths", To: "/mathematics", Prefix: true},
-	{From: "/mathematics/martingales", To: "/mathematics/on-martingales"},
+	{From: mustAlias("/maths"), To: "/mathematics", Prefix: true},
+	{From: mustAlias("/mathematics/martingales"), To: "/mathematics/on-martingales"},
+}
+
+func mustAlias(raw string) content.Alias {
+	alias, err := content.ParseAlias(raw)
+	if err != nil {
+		panic(err)
+	}
+	return alias
 }
 
 func golden(t *testing.T, name string, v any) []byte {
@@ -171,6 +179,10 @@ func TestDecodeRejectsInvalidDocuments(t *testing.T) {
 		},
 		"scheme-relative redirect": func(d map[string]any) { d["redirects"].([]any)[0].(map[string]any)["from"] = "//evil.example" },
 		"relative redirect target": func(d map[string]any) { d["redirects"].([]any)[0].(map[string]any)["to"] = "mathematics" },
+		"scheme-relative target":   func(d map[string]any) { d["redirects"].([]any)[0].(map[string]any)["to"] = "//evil.example" },
+		"root redirect target":     func(d map[string]any) { d["redirects"].([]any)[0].(map[string]any)["to"] = "/" },
+		"target below a source":    func(d map[string]any) { d["redirects"].([]any)[1].(map[string]any)["to"] = "/maths/on-martingales" },
+		"target at a source":       func(d map[string]any) { d["redirects"].([]any)[1].(map[string]any)["to"] = "/maths" },
 		"repeated redirect": func(d map[string]any) {
 			list := d["redirects"].([]any)
 			d["redirects"] = append(list, list[0])

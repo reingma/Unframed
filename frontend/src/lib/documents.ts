@@ -64,7 +64,7 @@ export const navNodeSchema: z.ZodType<NavNode> = z
 
 export const redirectSchema = z.object({
   from: aliasPath,
-  to: urlPath,
+  to: aliasPath,
   prefix: z.boolean(),
 });
 export type Redirect = z.infer<typeof redirectSchema>;
@@ -83,6 +83,16 @@ export const manifestSchema = z.object({
         new Set(redirects.map((r) => r.from)).size === redirects.length,
       "redirect sources must not repeat",
     )
+    // No target at or below a source guarantees that following redirects ends.
+    .refine((redirects) => {
+      const sources = new Set(redirects.map((r) => r.from));
+      return redirects.every((r) => {
+        for (let at = r.to; at; at = at.slice(0, at.lastIndexOf("/"))) {
+          if (sources.has(at)) return false;
+        }
+        return true;
+      });
+    }, "a redirect target must not be at or below a redirect source")
     .default([]),
 });
 export type Manifest = z.infer<typeof manifestSchema>;

@@ -18,7 +18,8 @@ import (
 // BenchmarkBuild measures one complete content build of the 1,000-article
 // tree of scan's BenchmarkScan with a longer article body: build.Build
 // followed by snapshot.New, which is the work every rebuild performs before
-// the result is served.
+// the result is served. The aliases case gives every section and article
+// content.MaxAliases former paths, 32,640 redirects in all.
 func BenchmarkBuild(b *testing.B) {
 	body := "# Heading\n\nBody text with *emphasis*, `code` and a [link](/a).\n\n" +
 		"| a | b |\n| - | - |\n| 1 | 2 |\n\n- [x] one\n- [ ] two\n\n```go\nfmt.Println(1)\n```\n"
@@ -34,8 +35,9 @@ func BenchmarkBuild(b *testing.B) {
 	logger := slog.New(slog.DiscardHandler)
 	publisher := publish.NewLocal(logs.Subscriber{Logger: logger})
 	for name, source := range map[string]content.Source{
-		"fs":     contenttest.NewFS(b, files),
-		"memory": contenttest.MemSource(files),
+		"fs":      contenttest.NewFS(b, files),
+		"memory":  contenttest.MemSource(files),
+		"aliases": contenttest.MemSource(contenttest.WithMaxAliases(files)),
 	} {
 		b.Run(name, func(b *testing.B) {
 			b.ReportAllocs()

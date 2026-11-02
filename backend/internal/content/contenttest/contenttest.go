@@ -3,9 +3,13 @@ package contenttest
 
 import (
 	"context"
+	"fmt"
 	"io/fs"
+	"maps"
 	"os"
+	"path"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -80,4 +84,32 @@ func NewFS(t testing.TB, files map[string]string) *content.FSSource {
 func Sources(t testing.TB, files map[string]string) map[string]content.Source {
 	t.Helper()
 	return map[string]content.Source{"fs": NewFS(t, files), "memory": MemSource(files)}
+}
+
+// WithMaxAliases returns a copy of files in which every directory
+// .configuration and every article below the root declares
+// content.MaxAliases former paths, for measuring alias-heavy builds.
+func WithMaxAliases(files map[string]string) map[string]string {
+	aliased := maps.Clone(files)
+	for name, data := range files {
+		dir, file := path.Split(name)
+		if dir == "" {
+			continue
+		}
+		slug := strings.ToLower(strings.TrimSuffix(name, ".md"))
+		if file == content.ConfigurationFile {
+			slug = strings.ToLower(strings.TrimSuffix(dir, "/"))
+		}
+		paths := make([]string, 0, content.MaxAliases)
+		for k := range content.MaxAliases {
+			paths = append(paths, fmt.Sprintf("%q", fmt.Sprintf("/old/%s-%d", slug, k)))
+		}
+		line := "aliases = [" + strings.Join(paths, ", ") + "]\n"
+		if file == content.ConfigurationFile {
+			aliased[name] = line + data
+		} else {
+			aliased[name] = "+++\n" + line + strings.TrimPrefix(data, "+++\n")
+		}
+	}
+	return aliased
 }

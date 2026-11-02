@@ -59,7 +59,7 @@ func (e ValidationError) Unwrap() error { return e.Err }
 // prefix redirect, from a directory alias, also sends every path below From
 // to the same suffix below To.
 type Redirect struct {
-	From   string
+	From   Alias
 	To     string
 	Prefix bool
 }

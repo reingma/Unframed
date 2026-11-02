@@ -244,8 +244,8 @@ func TestManifestLinksOnlyServedEnvelopes(t *testing.T) {
 					t.Fatalf("manifest redirects to %s, which is not served", r.To)
 				}
 			}
-			if len(result.Manifest.Redirects) != 3 {
-				t.Fatalf("build redirects = %v, want both aliases and their chain", result.Manifest.Redirects)
+			if len(result.Manifest.Redirects) != 2 {
+				t.Fatalf("build redirects = %v, want both aliases", result.Manifest.Redirects)
 			}
 			if _, ok := result.Envelopes[key]; !ok || len(result.Manifest.Nav.Children) == 0 {
 				t.Fatal("New modified the build result")

@@ -82,7 +82,6 @@ for (const [name, path] of [
   ["a draft", "/guides/setup"],
   ["a draft's alias", "/guides/setup-old"],
   ["a path below an article alias", "/guides/first/more"],
-  ["a looping alias", "/notes/alpha-note/x"],
   ["an unknown path", "/notes/missing"],
   ["a path that is not a slug", "/Notes"],
   ["the preview route without a token", "/preview"],
@@ -108,6 +107,16 @@ for (const [name, from, to] of [
     "/journal/beta-note",
     "/notes/beta-note",
   ],
+  [
+    "a subsection flattened into its parent",
+    "/notes/archive/beta-note",
+    "/notes/beta-note",
+  ],
+  [
+    "a chain of aliases in one hop",
+    "/journal/archive/beta-note",
+    "/notes/beta-note",
+  ],
 ]) {
   test(`redirects ${name} permanently`, async ({ page, request }) => {
     const response = await request.get(`${SITE}${from}`, { maxRedirects: 0 });
@@ -120,12 +129,12 @@ for (const [name, from, to] of [
   });
 }
 
-test("reports a redirect loop in diagnostics", async ({ page }) => {
+test("reports aliases of published paths in diagnostics", async ({ page }) => {
   await page.goto(`${SITE}/preview/${PREVIEW_TOKEN}/diagnostics`);
   for (const path of ["Notes/Alpha-Note.md", "Notes/Beta-Note.md"]) {
     await expect(
       page.locator(".diagnostics li").filter({ hasText: path }),
-    ).toContainText("redirect loop");
+    ).toContainText("alias shadows a published path");
   }
   const response = await page.goto(`${SITE}/notes/alpha-note`);
   expect(response?.status()).toBe(200);

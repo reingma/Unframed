@@ -196,8 +196,11 @@ records why:
   redacted.
 - A public path that is not in the manifest's navigation but matches one of its
   `redirects` answers a permanent 308 redirect to the target, keeping the
-  suffix below a directory alias; the deepest matching alias wins. Each hit is
-  logged as JSON with the request ID and the from and to paths. Next.js
+  suffix below a directory alias; the deepest matching alias wins. The target
+  is followed through further aliases until none matches, so a chain of
+  renames costs the reader one hop; the manifest lists only declared aliases,
+  and no target is at or below a source, so every chain ends. Each hit is
+  logged as JSON with the request ID and the from and final to paths. Next.js
   pages can only send 307 or 308, so 308 stands in for the 301 that was
   planned; both are permanent and cached by clients.
 - Any other public path that is not in the manifest, including drafts, draft

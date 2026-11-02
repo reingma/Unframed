@@ -33,21 +33,40 @@ export function findNode(root: NavNode, urlPath: string): NavNode | undefined {
 
 // resolveRedirect returns where a path that is not published redirects, or
 // undefined. An exact alias or a directory alias at or above the path
-// matches, keeping the path's suffix below it; the deepest match wins.
+// matches, keeping the path's suffix below it; the deepest match wins. The
+// result is followed through further aliases to its final path. No target is
+// at or below a source, so each hop consumes a segment of the remaining
+// suffix and the chain ends.
 export function resolveRedirect(
   redirects: readonly Redirect[],
   urlPath: string,
 ): string | undefined {
-  let match: Redirect | undefined;
-  for (const redirect of redirects) {
-    const matches =
-      urlPath === redirect.from ||
-      (redirect.prefix && urlPath.startsWith(redirect.from + "/"));
-    if (matches && (!match || redirect.from.length > match.from.length)) {
-      match = redirect;
-    }
+  const bySource = new Map(redirects.map((r) => [r.from, r]));
+  let target: string | undefined;
+  for (let current = urlPath; ;) {
+    const match = deepestRedirect(bySource, current);
+    if (!match) return target;
+    current = target = match.to + current.slice(match.from.length);
   }
-  return match && match.to + urlPath.slice(match.from.length);
+}
+
+function deepestRedirect(
+  bySource: ReadonlyMap<string, Redirect>,
+  urlPath: string,
+): Redirect | undefined {
+  for (const source of ancestorPaths(urlPath)) {
+    const redirect = bySource.get(source);
+    if (redirect && (redirect.prefix || source === urlPath)) return redirect;
+  }
+  return undefined;
+}
+
+// ancestorPaths yields urlPath and each ancestor above it, deepest first,
+// excluding the root.
+function* ancestorPaths(urlPath: string): Generator<string> {
+  for (let at = urlPath; at.length > 1; at = at.slice(0, at.lastIndexOf("/"))) {
+    yield at;
+  }
 }
 
 // A base prefixes every site link: "" for the public site, or the preview

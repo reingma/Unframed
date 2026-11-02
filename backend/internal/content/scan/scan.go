@@ -30,8 +30,6 @@ var (
 	ErrDuplicateAlias = errors.New("duplicate alias")
 	// ErrAliasShadowsPath reports an alias equal to a published URL path.
 	ErrAliasShadowsPath = errors.New("alias shadows a published path")
-	// ErrRedirectLoop reports aliases that redirect back to themselves.
-	ErrRedirectLoop = errors.New("redirect loop")
 )
 
 const (

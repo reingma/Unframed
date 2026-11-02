@@ -79,8 +79,10 @@ move. Each alias is `/` followed by lowercase slugs joined by `/`, such as
 rejected. A published article's aliases redirect permanently to it. A
 published directory's aliases also redirect every path below them to the
 same path below the directory, so `/old-section/post` reaches
-`/new-section/post`. Chains of aliases resolve to their final target. A
-draft's aliases are checked but never published.
+`/new-section/post`. Chains of aliases resolve to their final target in one
+redirect. A directory may alias a path below itself, so a flattened
+subsection `/notes/archive` can be an alias of `/notes`. A draft's aliases
+are checked but never published.
 
 The `[theme]` colors cascade from the root through each directory to its
 articles: each color a node sets replaces the inherited one. Because the root
@@ -122,10 +124,9 @@ are unaffected. These are per-item errors:
   excluded. A draft and a published article only collide with siblings of the
   same kind.
 - An alias that equals its own node's URL, is claimed by more than one
-  published node, equals a published URL, or redirects back into itself,
-  such as two articles aliasing each other's paths or a directory alias below
-  the directory. Only that alias is dropped; its node stays published. Remove
-  stale aliases that a published path has taken over.
+  published node, or equals a published URL, such as two articles aliasing
+  each other's paths. Only that alias is dropped; its node stays published.
+  Remove stale aliases that a published path has taken over.
 
 An invalid directory name or directory `.configuration` excludes the whole
 directory. A root `.configuration` that is missing, unreadable or breaks the

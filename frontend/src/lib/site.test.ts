@@ -96,39 +96,58 @@ describe("resolveRedirect", () => {
     },
   );
 
-  it("matches the deepest alias for every path, in any order", () => {
-    const segments = ["a", "b"];
-    const paths = ["/a", "/b", "/a/a", "/a/b", "/b/a", "/a/a/b", "/a/b/a"];
-    const all = paths.map((from, i) => ({
-      from,
-      to: `/t${i}`,
-      prefix: i % 3 !== 0,
-    }));
+  it.each([
+    ["/older/a", "/new/a"],
+    ["/older/deep/x", "/elsewhere/x"],
+    ["/new/old/old/x", "/new/x"],
+  ])("follows the chain from %s to %s in one result", (urlPath, target) => {
+    const chained: Redirect[] = [
+      ...redirects,
+      { from: "/older", to: "/old", prefix: true },
+      { from: "/new/old", to: "/new", prefix: true },
+    ];
+    expect(resolveRedirect(chained, urlPath)).toBe(target);
+  });
+
+  // Random redirect maps over a prefix-closed set of published paths, with
+  // sources that are unpublished and targets that are published, as Go
+  // builds them: every chain ends at a path no redirect matches.
+  it("ends every chain at a path that does not redirect", () => {
+    const segments = ["a", "b", "c"];
     let seed = 50;
     const random = () => (seed = (seed * 48271) % 2147483647) / 2147483647;
-    for (let trial = 0; trial < 200; trial++) {
-      const chosen = all
-        .filter(() => random() < 0.5)
-        .sort(() => random() - 0.5);
-      for (const depth of [1, 2, 3, 4]) {
-        const parts = Array.from(
-          { length: depth },
-          () => segments[Math.floor(random() * segments.length)],
-        );
-        const urlPath = "/" + parts.join("/");
-        const matches = chosen.filter(
-          (r) =>
-            urlPath === r.from ||
-            (r.prefix && urlPath.startsWith(r.from + "/")),
-        );
-        const deepest = matches.sort(
-          (x, y) => y.from.length - x.from.length,
-        )[0];
+    const pick = <T>(items: readonly T[]) =>
+      items[Math.floor(random() * items.length)];
+    const randomPath = (depth: number) =>
+      "/" + Array.from({ length: depth }, () => pick(segments)).join("/");
+    for (let trial = 0; trial < 300; trial++) {
+      const published = new Set<string>();
+      for (let i = 0; i < 6; i++) {
+        const parts = randomPath(1 + Math.floor(random() * 3)).split("/");
+        for (let n = 2; n <= parts.length; n++) {
+          published.add(parts.slice(0, n).join("/"));
+        }
+      }
+      const targets = [...published];
+      const chosen: Redirect[] = [];
+      for (let i = 0; i < 8; i++) {
+        const from = randomPath(1 + Math.floor(random() * 4));
+        if (published.has(from) || chosen.some((r) => r.from === from)) {
+          continue;
+        }
+        let ancestor = from;
+        while (ancestor && !published.has(ancestor)) {
+          ancestor = ancestor.slice(0, ancestor.lastIndexOf("/"));
+        }
+        if (ancestor) continue;
+        chosen.push({ from, to: pick(targets), prefix: random() < 0.7 });
+      }
+      for (let i = 0; i < 10; i++) {
+        const urlPath = randomPath(1 + Math.floor(random() * 6));
         const target = resolveRedirect(chosen, urlPath);
-        expect(target).toBe(
-          deepest && deepest.to + urlPath.slice(deepest.from.length),
-        );
-        if (target) expect(target.startsWith("/t")).toBe(true);
+        if (target !== undefined) {
+          expect(resolveRedirect(chosen, target)).toBeUndefined();
+        }
       }
     }
   });

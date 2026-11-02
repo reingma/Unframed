@@ -41,13 +41,28 @@ export function resolveRedirect(
   redirects: readonly Redirect[],
   urlPath: string,
 ): string | undefined {
-  const bySource = new Map(redirects.map((r) => [r.from, r]));
+  const bySource = redirectIndex(redirects);
   let target: string | undefined;
   for (let current = urlPath; ;) {
     const match = deepestRedirect(bySource, current);
     if (!match) return target;
     current = target = match.to + current.slice(match.from.length);
   }
+}
+
+// The manifest is fetched once per request, so its page and metadata share
+// one index of its redirects.
+const indexes = new WeakMap<readonly Redirect[], Map<string, Redirect>>();
+
+function redirectIndex(
+  redirects: readonly Redirect[],
+): ReadonlyMap<string, Redirect> {
+  let index = indexes.get(redirects);
+  if (!index) {
+    index = new Map(redirects.map((r) => [r.from, r]));
+    indexes.set(redirects, index);
+  }
+  return index;
 }
 
 function deepestRedirect(

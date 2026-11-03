@@ -34,5 +34,17 @@
         ]
       }
     ]
-  }
+  },
+  "redirects": [
+    {
+      "from": "/maths",
+      "to": "/mathematics",
+      "prefix": true
+    },
+    {
+      "from": "/mathematics/martingales",
+      "to": "/mathematics/on-martingales",
+      "prefix": false
+    }
+  ]
 }

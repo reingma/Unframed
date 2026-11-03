@@ -10,6 +10,9 @@ export const SCHEMA_VERSION = 1;
 const color = z.string().regex(/^#[0-9a-f]{6}$/);
 const title = z.string().trim().min(1);
 const urlPath = z.string().startsWith("/");
+// An alias is an internal path of lowercase slugs, so a redirect from one
+// never leaves the site.
+const aliasPath = z.string().regex(/^(?:\/[a-z0-9]+(?:-[a-z0-9]+)*)+$/);
 
 export const themeSchema = z.object({
   accent: color,
@@ -59,6 +62,13 @@ export const navNodeSchema: z.ZodType<NavNode> = z
     "an article has no index or children",
   );
 
+export const redirectSchema = z.object({
+  from: aliasPath,
+  to: aliasPath,
+  prefix: z.boolean(),
+});
+export type Redirect = z.infer<typeof redirectSchema>;
+
 export const manifestSchema = z.object({
   schemaVersion: z.literal(SCHEMA_VERSION),
   site: z.object({ title, description: z.string(), theme: themeSchema }),
@@ -66,6 +76,24 @@ export const manifestSchema = z.object({
     (nav) => nav.kind === "directory" && nav.urlPath === "/",
     'nav must be the root directory at "/"',
   ),
+  redirects: z
+    .array(redirectSchema)
+    .refine(
+      (redirects) =>
+        new Set(redirects.map((r) => r.from)).size === redirects.length,
+      "redirect sources must not repeat",
+    )
+    // No target at or below a source guarantees that following redirects ends.
+    .refine((redirects) => {
+      const sources = new Set(redirects.map((r) => r.from));
+      return redirects.every((r) => {
+        for (let at = r.to; at; at = at.slice(0, at.lastIndexOf("/"))) {
+          if (sources.has(at)) return false;
+        }
+        return true;
+      });
+    }, "a redirect target must not be at or below a redirect source")
+    .default([]),
 });
 export type Manifest = z.infer<typeof manifestSchema>;
 

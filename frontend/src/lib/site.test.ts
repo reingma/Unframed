@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import type { NavNode } from "./documents";
+import type { NavNode, Redirect } from "./documents";
 import {
   findNode,
   isPreviewToken,
   pageTitle,
   previewBase,
+  resolveRedirect,
   siteHref,
   themeStyle,
   urlPathFromSlug,
@@ -67,6 +68,150 @@ describe("findNode", () => {
     },
   );
 });
+
+describe("resolveRedirect", () => {
+  const redirects: Redirect[] = [
+    { from: "/old", to: "/new", prefix: true },
+    { from: "/old/deep", to: "/elsewhere", prefix: true },
+    { from: "/old/deep/page", to: "/page", prefix: false },
+    { from: "/renamed", to: "/guides/alpha", prefix: false },
+  ];
+
+  it.each([
+    ["/renamed", "/guides/alpha"],
+    ["/old", "/new"],
+    ["/old/a/b", "/new/a/b"],
+    ["/old/deep", "/elsewhere"],
+    ["/old/deep/x", "/elsewhere/x"],
+    ["/old/deep/page", "/page"],
+    ["/old/deep/page/x", "/elsewhere/page/x"],
+  ])("redirects %s to %s", (urlPath, target) => {
+    expect(resolveRedirect(redirects, urlPath)).toBe(target);
+  });
+
+  it.each(["/renamed/x", "/olden", "/ol", "/", "/new", "/guides/alpha"])(
+    "does not redirect %s",
+    (urlPath) => {
+      expect(resolveRedirect(redirects, urlPath)).toBeUndefined();
+    },
+  );
+
+  it.each([
+    ["/older/a", "/new/a"],
+    ["/older/deep/x", "/elsewhere/x"],
+    ["/new/old/old/x", "/new/x"],
+  ])("follows the chain from %s to %s in one result", (urlPath, target) => {
+    const chained: Redirect[] = [
+      ...redirects,
+      { from: "/older", to: "/old", prefix: true },
+      { from: "/new/old", to: "/new", prefix: true },
+    ];
+    expect(resolveRedirect(chained, urlPath)).toBe(target);
+  });
+
+  it("matches the deepest alias for every path, in any order", () => {
+    const segments = ["a", "b"];
+    const paths = ["/a", "/b", "/a/a", "/a/b", "/b/a", "/a/a/b", "/a/b/a"];
+    const all = paths.map((from, i) => ({
+      from,
+      to: `/t${i}`,
+      prefix: i % 3 !== 0,
+    }));
+    let seed = 50;
+    const random = () => (seed = (seed * 48271) % 2147483647) / 2147483647;
+    for (let trial = 0; trial < 200; trial++) {
+      const chosen = all
+        .filter(() => random() < 0.5)
+        .sort(() => random() - 0.5);
+      for (const depth of [1, 2, 3, 4]) {
+        const parts = Array.from(
+          { length: depth },
+          () => segments[Math.floor(random() * segments.length)],
+        );
+        const urlPath = "/" + parts.join("/");
+        const target = resolveRedirect(chosen, urlPath);
+        const deepest = deepestMatch(chosen, urlPath);
+        expect(target).toBe(
+          deepest && deepest.to + urlPath.slice(deepest.from.length),
+        );
+      }
+    }
+  });
+
+  // Random redirect maps built under Go's rules: a prefix-closed set of
+  // published paths, sources anywhere unpublished (including below published
+  // directories, where chains form) and published targets. Every chain ends
+  // at a path that does not redirect, within one hop per segment of the
+  // requested path plus one.
+  it("follows every chain to its end within the hop bound", () => {
+    const segments = ["a", "b", "c"];
+    let seed = 50;
+    const random = () => (seed = (seed * 48271) % 2147483647) / 2147483647;
+    const pick = <T>(items: readonly T[]) =>
+      items[Math.floor(random() * items.length)];
+    const randomPath = (maxDepth: number) =>
+      "/" +
+      Array.from({ length: 1 + Math.floor(random() * maxDepth) }, () =>
+        pick(segments),
+      ).join("/");
+    let chains = 0;
+    for (let trial = 0; trial < 500; trial++) {
+      const published = new Set<string>();
+      for (const path of [randomPath(3), randomPath(3)]) {
+        for (let at = path; at; at = at.slice(0, at.lastIndexOf("/"))) {
+          published.add(at);
+        }
+      }
+      const targets = [...published];
+      const bySource = new Map<string, Redirect>();
+      for (let i = 0; i < 12; i++) {
+        const from = randomPath(4);
+        if (!published.has(from)) {
+          bySource.set(from, {
+            from,
+            to: pick(targets),
+            prefix: random() < 0.7,
+          });
+        }
+      }
+      const chosen = [...bySource.values()];
+      for (let i = 0; i < 20; i++) {
+        const urlPath = randomPath(6);
+        const bound = urlPath.split("/").length;
+        let hops = 0;
+        let current = urlPath;
+        for (
+          let match = deepestMatch(chosen, current);
+          match && hops <= bound;
+          match = deepestMatch(chosen, current)
+        ) {
+          current = match.to + current.slice(match.from.length);
+          hops++;
+        }
+        expect(hops).toBeLessThanOrEqual(bound);
+        expect(resolveRedirect(chosen, urlPath)).toBe(
+          hops ? current : undefined,
+        );
+        if (hops > 1) chains++;
+      }
+    }
+    expect(chains).toBeGreaterThan(100);
+  });
+});
+
+// deepestMatch is the reference for one redirect hop: the exact or prefix
+// redirect with the longest source matching urlPath.
+function deepestMatch(
+  redirects: readonly Redirect[],
+  urlPath: string,
+): Redirect | undefined {
+  return redirects
+    .filter(
+      (r) =>
+        urlPath === r.from || (r.prefix && urlPath.startsWith(r.from + "/")),
+    )
+    .sort((x, y) => y.from.length - x.from.length)[0];
+}
 
 describe("links", () => {
   it("keeps public links at their URL path", () => {

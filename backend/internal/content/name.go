@@ -11,6 +11,8 @@ var (
 	ErrInvalidName = errors.New("invalid name")
 	// ErrInvalidSlug reports a URL slug outside the lowercase slug-form grammar.
 	ErrInvalidSlug = errors.New("invalid slug")
+	// ErrInvalidAlias reports an alias that is not an internal URL path.
+	ErrInvalidAlias = errors.New("invalid alias")
 )
 
 // Name is a source name in slug form: ASCII letter/digit segments joined by
@@ -46,6 +48,27 @@ func ParseSlug(raw string) (Slug, error) {
 }
 
 func (s Slug) String() string { return s.s }
+
+// Alias is a former internal URL path of a node: "/" followed by slugs
+// joined by "/", such as "/essays/old-title". It is never "/" and never has
+// a scheme, host, query or trailing slash. Its zero value is no alias.
+type Alias struct{ path string }
+
+// ParseAlias accepts paths matching ^(/[a-z0-9]+(-[a-z0-9]+)*)+$ unchanged.
+func ParseAlias(raw string) (Alias, error) {
+	rest, ok := strings.CutPrefix(raw, "/")
+	if !ok {
+		return Alias{}, fmt.Errorf("%w %q: use an absolute path of lowercase slugs, such as /essays/old-title", ErrInvalidAlias, raw)
+	}
+	for segment := range strings.SplitSeq(rest, "/") {
+		if !isSlugForm(segment, false) {
+			return Alias{}, fmt.Errorf("%w %q: use an absolute path of lowercase slugs, such as /essays/old-title", ErrInvalidAlias, raw)
+		}
+	}
+	return Alias{path: raw}, nil
+}
+
+func (a Alias) String() string { return a.path }
 
 func isSlugForm(raw string, allowUpper bool) bool {
 	if raw == "" {

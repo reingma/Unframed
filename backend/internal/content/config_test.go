@@ -3,6 +3,7 @@ package content
 import (
 	"errors"
 	"math/rand/v2"
+	"reflect"
 	"strings"
 	"testing"
 	"unicode"
@@ -19,7 +20,7 @@ func TestParseConfigValid(t *testing.T) {
 	want := Config{Title: "Unframed", Description: "Notes", Theme: Theme{
 		Accent: Color{"#3366aa"}, Background: Color{"#ffffff"}, Text: Color{"#111111"},
 	}}
-	if site != want {
+	if !reflect.DeepEqual(site, want) {
 		t.Fatalf("site = %+v, want %+v", site, want)
 	}
 
@@ -32,15 +33,34 @@ func TestParseConfigValid(t *testing.T) {
 	}
 
 	for _, level := range []Level{LevelDirectory, LevelArticle, LevelLanding} {
-		if config, err := ParseConfig(level, nil); err != nil || config != (Config{}) {
+		if config, err := ParseConfig(level, nil); err != nil || !reflect.DeepEqual(config, Config{}) {
 			t.Errorf("empty level %d = %+v, %v", level, config, err)
 		}
 	}
 }
 
+func TestParseConfigAliases(t *testing.T) {
+	for _, level := range []Level{LevelDirectory, LevelArticle} {
+		config, err := ParseConfig(level, []byte("aliases = [\"/old\", \"/essays/old-title\"]\n"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var got []string
+		for _, alias := range config.Aliases {
+			got = append(got, alias.String())
+		}
+		if !reflect.DeepEqual(got, []string{"/old", "/essays/old-title"}) {
+			t.Fatalf("level %d aliases = %v", level, got)
+		}
+	}
+	if config, err := ParseConfig(LevelArticle, []byte("aliases = []\n")); err != nil || len(config.Aliases) != 0 {
+		t.Fatalf("empty aliases = %+v, %v", config, err)
+	}
+}
+
 func TestParseConfigIgnoresUnknownKeys(t *testing.T) {
 	data := "summary = 1\n[math]\nengine = \"katex\"\n[theme]\nfont = \"serif\"\n[[links]]\ntitle = 3\n"
-	if config, err := ParseConfig(LevelDirectory, []byte(data)); err != nil || config != (Config{}) {
+	if config, err := ParseConfig(LevelDirectory, []byte(data)); err != nil || !reflect.DeepEqual(config, Config{}) {
 		t.Fatalf("unknown keys = %+v, %v", config, err)
 	}
 }
@@ -76,7 +96,16 @@ func TestParseConfigFieldErrors(t *testing.T) {
 		"color form":                  {LevelDirectory, "[theme]\naccent = \"blue\"\n", []wantField{{"theme.accent", RuleColor, 2, 1}}},
 		"inline table color":          {LevelArticle, "theme = { accent = 1 }\n", []wantField{{"theme.accent", RuleType, 1, 11}}},
 		"dotted key color":            {LevelArticle, "theme.text = \"#12345\"\n", []wantField{{"theme.text", RuleColor, 1, 1}}},
-		"every error is reported":     {LevelDirectory, "order = \"1\"\ntitle = \"\"\n[theme]\ntext = \"#zzzzzz\"\n", []wantField{{"title", RuleText, 2, 1}, {"order", RuleType, 1, 1}, {"theme.text", RuleColor, 4, 1}}},
+		"site aliases":                {LevelSite, "aliases = [\"/old\"]\n" + validSite, []wantField{{"aliases", RuleNotAllowed, 1, 1}}},
+		"landing aliases":             {LevelLanding, "aliases = [\"/old\"]\n", []wantField{{"aliases", RuleNotAllowed, 1, 1}}},
+		"aliases not an array":        {LevelArticle, "aliases = \"/old\"\n", []wantField{{"aliases", RuleType, 1, 1}}},
+		"alias not a string":          {LevelArticle, "aliases = [1]\n", []wantField{{"aliases", RuleType, 1, 1}}},
+		"too many aliases":            {LevelArticle, "aliases = [" + strings.Repeat("\"/a\", ", MaxAliases) + "\"/b\"]\n", []wantField{{"aliases", RuleRange, 1, 1}}},
+		"every bad alias is reported": {LevelDirectory, "aliases = [\"https://evil.example\", \"/ok\", \"//evil.example\", \"/ok\", \"/Upper\", \"/\", \"/a/\"]\n", []wantField{
+			{"aliases", RuleAlias, 1, 1}, {"aliases", RuleAlias, 1, 1}, {"aliases", RuleAlias, 1, 1},
+			{"aliases", RuleAlias, 1, 1}, {"aliases", RuleAlias, 1, 1}, {"aliases", RuleAlias, 1, 1},
+		}},
+		"every error is reported": {LevelDirectory, "order = \"1\"\ntitle = \"\"\n[theme]\ntext = \"#zzzzzz\"\n", []wantField{{"title", RuleText, 2, 1}, {"order", RuleType, 1, 1}, {"theme.text", RuleColor, 4, 1}}},
 	} {
 		t.Run(name, func(t *testing.T) {
 			if tc.want == nil {
@@ -176,7 +205,7 @@ func TestThemeOverrideProperties(t *testing.T) {
 func FuzzParseConfig(f *testing.F) {
 	for _, seed := range []string{
 		validSite, "", "title = 3", "order = 9999\nslug = \"a-b\"", "theme = { accent = \"#AABBCC\" }",
-		"title = \"a\\u0007\"", "[theme]\ntext = \"#12345g\"", "[[theme]]\naccent = \"#000000\"",
+		"title = \"a\\u0007\"", "[theme]\ntext = \"#12345g\"", "aliases = [\"/a\", \"/a\"]", "aliases = [\"/x/y-z\"]", "[[theme]]\naccent = \"#000000\"",
 	} {
 		for level := LevelSite; level <= LevelLanding; level++ {
 			f.Add(uint8(level), seed)
@@ -219,8 +248,15 @@ func FuzzParseConfig(f *testing.F) {
 			}
 		}
 		nodeLocal := level == LevelDirectory || level == LevelArticle
-		if !nodeLocal && (config.Ordered || config.Slug != (Slug{})) {
-			t.Fatalf("level %d accepted slug or order: %+v", level, config)
+		if !nodeLocal && (config.Ordered || config.Slug != (Slug{}) || len(config.Aliases) > 0) {
+			t.Fatalf("level %d accepted slug, order or aliases: %+v", level, config)
+		}
+		seen := map[Alias]bool{}
+		for _, alias := range config.Aliases {
+			if _, err := ParseAlias(alias.String()); err != nil || seen[alias] {
+				t.Fatalf("accepted alias %q in %v", alias, config.Aliases)
+			}
+			seen[alias] = true
 		}
 		if level == LevelSite && (config.Title == "" || !config.Theme.Complete()) {
 			t.Fatalf("site accepted without required fields: %+v", config)

@@ -24,6 +24,7 @@ initialize: |
   test "$(go env GOVERSION)" = "go$go_version"
   test "$(node --version)" = "v$node_version"
   expected_npm="$(node -p "require('./frontend/package.json').packageManager.replace(/^npm@/, '')")"
+  if [ "$(npm --version)" != "$expected_npm" ]; then npm install -g "npm@$expected_npm"; fi
   test "$(npm --version)" = "$expected_npm"
   printf 'PATH=%s\n' "$PATH" >> "$ENVRC"
   go version
